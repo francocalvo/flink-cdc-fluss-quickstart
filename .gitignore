@@ -1,0 +1,42 @@
+# Docker data volumes
+data/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Gradle build artifacts
+streaming-gradle/.gradle/
+streaming-gradle/lib/build/
+streaming-gradle/build/
+streaming-gradle/lib/.gradle/
+streaming-gradle/lib/bin/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log*

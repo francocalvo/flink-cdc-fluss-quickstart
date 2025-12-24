@@ -135,10 +135,12 @@ if ! docker exec "${SQL_CLIENT_CONTAINER}" echo "Container ready" >/dev/null 2>&
     exit 1
 fi
 
-# 4. Create Paimon catalog
-echo "Setting up Paimon catalog..."
-CATALOG_SQL_CONTENT=$(cat << 'EOF'
--- Create Paimon catalog
+# 4. Create all tables in a single SQL session
+echo "Setting up complete Flink pipeline in single session..."
+COMPLETE_SQL_CONTENT=$(cat << 'EOF'
+-- ===========================================
+-- Create Paimon Catalog
+-- ===========================================
 CREATE CATALOG IF NOT EXISTS paimon_catalog WITH (
     'type' = 'paimon',
     'metastore' = 'jdbc',
@@ -155,29 +157,24 @@ CREATE CATALOG IF NOT EXISTS paimon_catalog WITH (
 USE CATALOG paimon_catalog;
 CREATE DATABASE IF NOT EXISTS lakehouse;
 USE lakehouse;
-EOF
-)
 
-run_flink_sql "${CATALOG_SQL_CONTENT}" "Creating Paimon catalog and database"
-
-# 5. Create Fluss catalog (optional)
-echo "Setting up Fluss catalog..."
-FLUSS_SQL_CONTENT=$(cat << 'EOF'
+-- ===========================================
+-- Create Fluss Catalog (Optional)
+-- ===========================================
 CREATE CATALOG IF NOT EXISTS fluss_catalog WITH (
     'type' = 'fluss',
     'bootstrap.servers' = 'fluss-coordinator:9123'
 );
-EOF
-)
 
-run_flink_sql "${FLUSS_SQL_CONTENT}" "Creating Fluss catalog"
+-- ===========================================
+-- Switch to default catalog for connector tables
+-- ===========================================
+USE CATALOG default_catalog;
+USE default_database;
 
-# 6. Create CDC source table
-echo "Creating CDC source table for PostgreSQL..."
-CDC_TABLE_SQL=$(cat << 'EOF'
-USE CATALOG paimon_catalog;
-USE lakehouse;
-
+-- ===========================================
+-- CDC Source Table: osb.tickets
+-- ===========================================
 CREATE TABLE IF NOT EXISTS cdc_tickets (
     id STRING NOT NULL,
     user_id STRING NOT NULL,
@@ -210,17 +207,37 @@ CREATE TABLE IF NOT EXISTS cdc_tickets (
     'slot.name' = 'tickets_slot',
     'decoding.plugin.name' = 'pgoutput'
 );
-EOF
-)
 
-run_flink_sql "${CDC_TABLE_SQL}" "Creating CDC source table"
+-- ===========================================
+-- Kinesis Source Table: events
+-- ===========================================
+CREATE TABLE IF NOT EXISTS kinesis_events (
+    event_id STRING,
+    event_type STRING,
+    payload STRING,
+    event_time TIMESTAMP(3),
+    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+) WITH (
+    'connector' = 'kinesis',
+    'stream.arn' = 'arn:aws:kinesis:us-east-1:000000000000:stream/events',
+    'aws.region' = 'us-east-1',
+    'aws.endpoint' = 'http://localstack:4566',
+    'aws.credentials.provider' = 'BASIC',
+    'aws.credentials.basic.accesskeyid' = 'test',
+    'aws.credentials.basic.secretkey' = 'test',
+    'source.init.position' = 'TRIM_HORIZON',
+    'format' = 'json'
+);
 
-# 7. Create Paimon sink table
-echo "Creating Paimon sink table..."
-PAIMON_TABLE_SQL=$(cat << 'EOF'
+-- ===========================================
+-- Switch to Paimon catalog for Paimon tables
+-- ===========================================
 USE CATALOG paimon_catalog;
 USE lakehouse;
 
+-- ===========================================
+-- Paimon Sink Table: tickets
+-- ===========================================
 CREATE TABLE IF NOT EXISTS tickets (
     id STRING NOT NULL,
     user_id STRING NOT NULL,
@@ -246,49 +263,23 @@ CREATE TABLE IF NOT EXISTS tickets (
     'changelog-producer' = 'input',
     'bucket' = '4'
 );
-EOF
-)
 
-run_flink_sql "${PAIMON_TABLE_SQL}" "Creating Paimon sink table"
+-- ===========================================
+-- Verify Setup
+-- ===========================================
+-- Show tables in default catalog
+USE CATALOG default_catalog;
+SHOW TABLES;
 
-# 8. Create Kinesis source table
-echo "Creating Kinesis source table..."
-KINESIS_TABLE_SQL=$(cat << 'EOF'
-USE CATALOG paimon_catalog;
-USE lakehouse;
-
-CREATE TABLE IF NOT EXISTS kinesis_events (
-    event_id STRING,
-    event_type STRING,
-    payload STRING,
-    event_time TIMESTAMP(3),
-    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
-) WITH (
-    'connector' = 'kinesis',
-    'stream.arn' = 'arn:aws:kinesis:us-east-1:000000000000:stream/events',
-    'aws.region' = 'us-east-1',
-    'aws.endpoint' = 'http://localstack:4566',
-    'aws.credentials.provider' = 'BASIC',
-    'aws.credentials.basic.accesskeyid' = 'test',
-    'aws.credentials.basic.secretkey' = 'test',
-    'source.init.position' = 'TRIM_HORIZON',
-    'format' = 'json'
-);
-EOF
-)
-
-run_flink_sql "${KINESIS_TABLE_SQL}" "Creating Kinesis source table"
-
-# 9. List tables to verify setup
-echo "Verifying table creation..."
-LIST_TABLES_SQL=$(cat << 'EOF'
+-- Show tables in Paimon catalog
 USE CATALOG paimon_catalog;
 USE lakehouse;
 SHOW TABLES;
 EOF
 )
 
-run_flink_sql "${LIST_TABLES_SQL}" "Listing created tables"
+# Execute all SQL in a single session
+run_flink_sql "${COMPLETE_SQL_CONTENT}" "Setting up complete Flink pipeline"
 
 echo "------------------------------------------"
 echo "✅ Flink/Paimon setup complete!"

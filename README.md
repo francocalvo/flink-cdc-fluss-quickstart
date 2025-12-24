@@ -33,11 +33,13 @@ S3-compatible storage.
 ```bash
 docker compose up -d  postgres-source postgres-catalog garage localstack
 
-chmod +x scripts/init-garage.sh
-./scripts/init-garage.sh
+chmod +x scripts/garage.sh
+./init-scripts/garage.sh
+
+chmod +x scripts/kinesis.sh
+./init-scripts/kinesis.sh
 
 docker compose up -d jobmanager taskmanager sql-client
-
 docker compose up -d zookeeper
 docker compose up -d fluss-coordinator fluss-tablet
 

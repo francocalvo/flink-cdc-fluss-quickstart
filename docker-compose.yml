@@ -1,3 +1,6 @@
+x-build-args: &buildkit-args
+  DOCKER_BUILDKIT: 1
+
 services:
   postgres-catalog:
     image: postgres:14

@@ -1,12 +1,28 @@
-FROM flink:1.19-scala_2.12-java11
+# Build stage: Generate dependencies using Gradle
+FROM gradle:8.14.3-jdk17 AS gradle-builder
 
-ARG FLINK_VERSION=1.19.0
-ARG FLINK_MAJOR=1.19
-ARG PAIMON_VERSION=0.9.1
-ARG FLINK_CDC_VERSION=3.2.0
-ARG FLUSS_VERSION=0.6.0-incubating
-ARG JDBC_CONNECTOR_VERSION=3.2.0-1.19
-ARG AWS_CONNECTOR_VERSION=4.3.0-1.19
+ARG FLINK_VERSION=2.1.0
+ARG FLINK_CDC_VERSION=3.5.0
+ARG PAIMON_VERSION=1.1.0
+ARG FLUSS_VERSION=0.8.0-incubating
+ARG HADOOP_VERSION=3.4.1
+ARG AWS_SDK_VERSION=1.12.780
+ARG POSTGRESQL_VERSION=42.7.4
+
+WORKDIR /build
+
+# Copy Gradle project files
+COPY streaming-gradle/ ./
+
+# Download all dependencies using the lib subproject with cache mount
+RUN --mount=type=cache,target=/root/.gradle/caches \
+    --mount=type=cache,target=/root/.gradle/wrapper \
+    gradle --no-configuration-cache :lib:copyFlinkLibs --no-daemon
+
+# Runtime stage: Flink with dependencies
+FROM flink:2.1-scala_2.12-java17
+
+ARG FLINK_VERSION=2.1.0
 
 USER root
 
@@ -21,57 +37,18 @@ RUN apt-get update && \
 
 ENV PATH="/opt/pyflink-venv/bin:$PATH"
 
-WORKDIR /opt/flink/lib
+# Copy Gradle-managed JARs from builder stage
+WORKDIR /opt/flink
+COPY --from=gradle-builder /build/lib/build/flink-libs/*.jar /opt/flink/lib/
 
-# Paimon (Flink 2.0+ uses paimon-flink-2.0)
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/paimon/paimon-flink-2.0/${PAIMON_VERSION}/paimon-flink-2.0-${PAIMON_VERSION}.jar" \
-    -o paimon-flink.jar
-
-# Paimon S3 support
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/paimon/paimon-s3/${PAIMON_VERSION}/paimon-s3-${PAIMON_VERSION}.jar" \
-    -o paimon-s3.jar
-
-# Hadoop dependencies for Paimon S3
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-common/3.3.6/hadoop-common-3.3.6.jar" \
-    -o hadoop-common.jar
-
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/hadoop-aws-3.3.6.jar" \
-    -o hadoop-aws.jar
-
-RUN curl -fSL "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.717/aws-java-sdk-bundle-1.12.717.jar" \
-    -o aws-java-sdk-bundle.jar
-
-# Flink CDC - PostgreSQL
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-connector-postgres-cdc/${FLINK_CDC_VERSION}/flink-connector-postgres-cdc-${FLINK_CDC_VERSION}.jar" \
-    -o flink-connector-postgres-cdc.jar
-
-# Flink CDC Pipeline connector for Paimon
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-paimon/${FLINK_CDC_VERSION}/flink-cdc-pipeline-connector-paimon-${FLINK_CDC_VERSION}.jar" \
-    -o flink-cdc-pipeline-paimon.jar
-
-# Flink S3 filesystem (for checkpoints/savepoints)
-RUN mkdir -p ../plugins/s3-fs-hadoop && \
-    curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-hadoop/${FLINK_VERSION}/flink-s3-fs-hadoop-${FLINK_VERSION}.jar" \
-    -o ../plugins/s3-fs-hadoop/flink-s3-fs-hadoop.jar
-
-# JDBC connector (reorganized in Flink 2.0+)
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc-core/${JDBC_CONNECTOR_VERSION}/flink-connector-jdbc-core-${JDBC_CONNECTOR_VERSION}.jar" \
-    -o flink-connector-jdbc-core.jar
-
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc-postgres/${JDBC_CONNECTOR_VERSION}/flink-connector-jdbc-postgres-${JDBC_CONNECTOR_VERSION}.jar" \
-    -o flink-connector-jdbc-postgres.jar
-
-# PostgreSQL driver
-RUN curl -fSL "https://jdbc.postgresql.org/download/postgresql-42.7.3.jar" \
-    -o postgresql.jar
-
-# Fluss connector (Apache Fluss 0.8.0 incubating)
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-1.20/${FLUSS_VERSION}/fluss-flink-1.20-${FLUSS_VERSION}.jar" \
-    -o fluss-connector-flink.jar
-
-# Kinesis connector (5.x is Flink 2.x compatible)
-RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-aws-kinesis-streams/${AWS_CONNECTOR_VERSION}/flink-sql-connector-aws-kinesis-streams-${AWS_CONNECTOR_VERSION}.jar" \
-    -o flink-sql-connector-kinesis.jar
+# Keep S3 filesystem plugin separate (required by Flink architecture)
+RUN mkdir -p /opt/flink/plugins/s3-fs-hadoop && \
+    if ls /opt/flink/lib/flink-s3-fs-hadoop-*.jar 1> /dev/null 2>&1; then \
+        mv /opt/flink/lib/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3-fs-hadoop/; \
+    else \
+        curl -fSL "https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-hadoop/${FLINK_VERSION}/flink-s3-fs-hadoop-${FLINK_VERSION}.jar" \
+        -o /opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop.jar; \
+    fi
 
 # Fix permissions
 RUN chown -R flink:flink /opt/flink

@@ -75,13 +75,35 @@ fi
 
 # 5. Handle Bucket
 echo "Ensuring bucket '${BUCKET_ALIAS}' exists..."
-CREATE_RES=$(curl_admin -X POST "${GARAGE_ADMIN}/v1/bucket" \
-  -H "Content-Type: application/json" \
-  -d "{\"globalAliases\":[\"${BUCKET_ALIAS}\"]}")
 
-BUCKET_ID=$(echo "${CREATE_RES}" | jq -r '.id // empty')
-if [[ -z "${BUCKET_ID}" || "${BUCKET_ID}" == "null" ]]; then
-  BUCKET_ID=$(curl_admin "${GARAGE_ADMIN}/v1/bucket?globalAlias=${BUCKET_ALIAS}" | jq -r '.id // empty')
+# Check if bucket already exists
+EXISTING_BUCKET=$(curl_admin "${GARAGE_ADMIN}/v1/bucket?globalAlias=${BUCKET_ALIAS}" 2>/dev/null | jq -r '.id // empty')
+
+if [[ -n "${EXISTING_BUCKET}" && "${EXISTING_BUCKET}" != "null" && "${EXISTING_BUCKET}" != "empty" ]]; then
+    echo "Bucket '${BUCKET_ALIAS}' already exists with ID: ${EXISTING_BUCKET}"
+    BUCKET_ID="${EXISTING_BUCKET}"
+else
+    echo "Creating bucket '${BUCKET_ALIAS}'..."
+
+    # Create bucket using CLI (more reliable than API)
+    docker exec garage /garage -c /etc/garage.toml bucket create "${BUCKET_ALIAS}" >/dev/null 2>&1 || {
+        echo "Warning: Bucket creation via CLI failed, trying API..."
+
+        # Fallback to API creation without alias, then add alias
+        CREATE_RES=$(curl_admin -X POST "${GARAGE_ADMIN}/v1/bucket" \
+          -H "Content-Type: application/json" \
+          -d "{}")
+
+        BUCKET_ID=$(echo "${CREATE_RES}" | jq -r '.id // empty')
+
+        if [[ -n "${BUCKET_ID}" && "${BUCKET_ID}" != "null" ]]; then
+            echo "Created bucket, adding alias..."
+            docker exec garage /garage -c /etc/garage.toml bucket alias "${BUCKET_ID}" "${BUCKET_ALIAS}" >/dev/null 2>&1
+        fi
+    }
+
+    # Get the bucket ID after creation
+    BUCKET_ID=$(curl_admin "${GARAGE_ADMIN}/v1/bucket?globalAlias=${BUCKET_ALIAS}" | jq -r '.id // empty')
 fi
 
 # 6. Grant Permissions
