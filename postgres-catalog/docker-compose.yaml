@@ -1,0 +1,20 @@
+services:
+  postgres-catalog:
+    image: postgres:14
+    container_name: postgres-catalog
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: paimon_catalog
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./data/postgres-catalog:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d paimon_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lakehouse

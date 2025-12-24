@@ -1,0 +1,76 @@
+services:
+  jobmanager:
+    build:
+      context: .
+    # image: flink-custom:latest
+    container_name: flink-jobmanager
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        state.backend.type: rocksdb
+        state.checkpoints.dir: s3://warehouse/checkpoints
+        state.savepoints.dir: s3://warehouse/savepoints
+        s3.endpoint: http://192.168.1.4:3900
+        s3.path-style-access: true
+        s3.access-key: TODO
+        s3.secret-key: TODO
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data/flink:/opt/flink/data
+      - ./sql:/opt/flink/sql
+    networks:
+      - lakehouse
+
+  taskmanager:
+    build:
+      context: .
+    container_name: flink-taskmanager
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 4g
+        state.backend.type: rocksdb
+        s3.endpoint: http://192.168.1.4:3900
+        s3.path-style-access: true
+        s3.access-key: ${192.168.1.4_ACCESS_KEY:-GKxxxxxxxxxxxxxxxx}
+        s3.secret-key: ${192.168.1.4_SECRET_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
+    volumes:
+      - ./data/flink:/opt/flink/data
+      - ./sql:/opt/flink/sql
+    depends_on:
+      - jobmanager
+    deploy:
+      replicas: 2
+    networks:
+      - lakehouse
+
+  sql-client:
+    build:
+      context: .
+    container_name: flink-sql-client
+    command: >
+      bash -c "
+        sleep 30 &&
+        /opt/flink/bin/sql-client.sh
+      "
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        rest.address: jobmanager
+        s3.endpoint: http://192.168.1.4:3900
+        s3.path-style-access: true
+        s3.access-key: ${192.168.1.4_ACCESS_KEY:-GKxxxxxxxxxxxxxxxx}
+        s3.secret-key: ${192.168.1.4_SECRET_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
+    volumes:
+      - ./sql:/opt/flink/sql
+    depends_on:
+      - jobmanager
+      - taskmanager
+    stdin_open: true
+    tty: true
+    networks:
+      - lakehouse

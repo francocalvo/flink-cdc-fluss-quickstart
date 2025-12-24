@@ -1,0 +1,20 @@
+# Paimon Catalog
+table.catalog.paimon_catalog.type: paimon
+table.catalog.paimon_catalog.metastore: jdbc
+table.catalog.paimon_catalog.uri: jdbc:postgresql://postgres-catalog:5432/paimon_catalog
+table.catalog.paimon_catalog.jdbc.user: root
+table.catalog.paimon_catalog.jdbc.password: root
+table.catalog.paimon_catalog.warehouse: s3://warehouse/paimon
+table.catalog.paimon_catalog.s3.endpoint: http://garage:3900
+table.catalog.paimon_catalog.s3.path-style-access: true
+table.catalog.paimon_catalog.s3.access-key: ${GARAGE_ACCESS_KEY}
+table.catalog.paimon_catalog.s3.secret-key: ${GARAGE_SECRET_KEY}
+
+# Fluss Catalog
+table.catalog.fluss_catalog.type: fluss
+table.catalog.fluss_catalog.bootstrap.servers: fluss-coordinator:9123
+
+# Optionally set a default
+table.catalog-store.kind: generic_in_memory
+table.default-catalog: paimon_catalog
+table.default-database: lakehouse
