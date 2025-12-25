@@ -18,5 +18,3 @@ services:
       timeout: 3s
       retries: 6
       start_period: 20s
-    networks:
-      - lakehouse
