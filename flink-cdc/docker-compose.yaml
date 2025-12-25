@@ -2,7 +2,6 @@ services:
   jobmanager:
     build:
       context: .
-    # image: flink-custom:latest
     container_name: flink-jobmanager
     command: jobmanager
     environment:
@@ -13,15 +12,13 @@ services:
         state.savepoints.dir: s3://warehouse/savepoints
         s3.endpoint: http://192.168.1.4:3900
         s3.path-style-access: true
-        s3.access-key: TODO
-        s3.secret-key: TODO
+        s3.access-key: GKb5a9a2c020af7711c53375ee 
+        s3.secret-key: b76ccdae5d91f8bb85ca4afdb3229808be4160cca4bac6d72eaff194a6a41327
     ports:
       - "8081:8081"
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
-    networks:
-      - lakehouse
 
   taskmanager:
     build:
@@ -36,8 +33,8 @@ services:
         state.backend.type: rocksdb
         s3.endpoint: http://192.168.1.4:3900
         s3.path-style-access: true
-        s3.access-key: ${192.168.1.4_ACCESS_KEY:-GKxxxxxxxxxxxxxxxx}
-        s3.secret-key: ${192.168.1.4_SECRET_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
+        s3.access-key: GKb5a9a2c020af7711c53375ee 
+        s3.secret-key: b76ccdae5d91f8bb85ca4afdb3229808be4160cca4bac6d72eaff194a6a41327
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
@@ -45,8 +42,6 @@ services:
       - jobmanager
     deploy:
       replicas: 2
-    networks:
-      - lakehouse
 
   sql-client:
     build:
@@ -63,8 +58,8 @@ services:
         rest.address: jobmanager
         s3.endpoint: http://192.168.1.4:3900
         s3.path-style-access: true
-        s3.access-key: ${192.168.1.4_ACCESS_KEY:-GKxxxxxxxxxxxxxxxx}
-        s3.secret-key: ${192.168.1.4_SECRET_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
+        s3.access-key: GKb5a9a2c020af7711c53375ee 
+        s3.secret-key: b76ccdae5d91f8bb85ca4afdb3229808be4160cca4bac6d72eaff194a6a41327
     volumes:
       - ./sql:/opt/flink/sql
     depends_on:
@@ -72,5 +67,3 @@ services:
       - taskmanager
     stdin_open: true
     tty: true
-    networks:
-      - lakehouse
