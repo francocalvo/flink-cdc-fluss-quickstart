@@ -116,19 +116,6 @@ aws --endpoint-url=http://localhost:3900 s3 ls s3://warehouse/
 docker compose restart jobmanager taskmanager
 ```
 
-## Troubleshooting
+## Links
 
-**Garage not initializing:** Run the init script manually and check logs with
-`docker compose logs garage`.
-
-**CDC slot already exists:** Drop on postgres-source:
-
-```sql
-SELECT pg_drop_replication_slot('tickets_slot');
-```
-
-**Flink can't reach S3:** Verify Garage credentials in `.env` and that the
-warehouse bucket exists.
-
-**Fluss connection refused:** Ensure ZooKeeper is healthy before starting Fluss
-services.
+https://fluss.apache.org/blog/hands-on-fluss-lakehouse/
