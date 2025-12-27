@@ -14,7 +14,7 @@ USE CATALOG fluss_catalog;
 CREATE DATABASE IF NOT EXISTS osb_staging;
 USE osb_staging;
 
-DROP TABLE IF EXISTS tickets_staging;
+-- DROP TABLE IF EXISTS tickets_staging;
 
 -- 2) Fluss staging table (append-only log table)
 CREATE TABLE IF NOT EXISTS tickets_staging (
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS tickets_staging (
 WITH (
     'bucket.num' = '4',
     'table.datalake.enabled' = 'true',
-    'table.datalake.tiering.snapshot.interval' = '1min'
+    'table.datalake.freshness' = '30s'
 );
 
 
