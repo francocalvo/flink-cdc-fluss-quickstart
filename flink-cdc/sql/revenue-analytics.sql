@@ -11,7 +11,7 @@ CREATE CATALOG fluss_catalog WITH (
 USE CATALOG fluss_catalog;
 USE osb_staging;
 
--- Create materialized view for real-time revenue per movie with detailed status breakdown
+-- Create materialized view for real-time revenue per movie with batch query support
 CREATE TABLE movie_revenue_realtime (
     movie_id BIGINT,
     movie_title STRING,
@@ -29,7 +29,9 @@ CREATE TABLE movie_revenue_realtime (
     last_ticket_purchased TIMESTAMP(3),
     PRIMARY KEY (movie_id) NOT ENFORCED
 ) WITH (
-    'bucket.num' = '4'
+    'bucket.num' = '4',
+    'table.datalake.enabled' = 'true',
+    'table.datalake.freshness' = '10s'
 );
 
 -- Continuous query to aggregate revenue by movie with status breakdown

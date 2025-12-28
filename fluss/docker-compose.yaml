@@ -53,8 +53,8 @@ services:
 
         datalake.paimon.warehouse: s3://warehouse/paimon
         datalake.paimon.s3.endpoint: http://192.168.1.4:3900
-        datalake.paimon.s3.access-key: GK207916168ce7c7e9d7d9ff47
-        datalake.paimon.s3.secret-key: af878540a497f311d805b3f165d95f2d0449bc659216800d66c4bab0445a098d
+        datalake.paimon.s3.access-key: GK52dfd58afc72fa785017d472
+        datalake.paimon.s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
         datalake.paimon.s3.path.style.access: true
     volumes:
       - ./data/fluss/remote:/tmp/fluss/remote-data
@@ -90,8 +90,8 @@ services:
 
         datalake.paimon.warehouse: s3://warehouse/paimon
         datalake.paimon.s3.endpoint: http://192.168.1.4:3900
-        datalake.paimon.s3.access-key: GK207916168ce7c7e9d7d9ff47
-        datalake.paimon.s3.secret-key: af878540a497f311d805b3f165d95f2d0449bc659216800d66c4bab0445a098d
+        datalake.paimon.s3.access-key: GK52dfd58afc72fa785017d472
+        datalake.paimon.s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
         datalake.paimon.s3.path.style.access: true
     volumes:
       - ./data/fluss/tablet:/tmp/fluss/data
