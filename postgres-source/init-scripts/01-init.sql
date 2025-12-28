@@ -14,22 +14,10 @@ CREATE PUBLICATION cdc_publication FOR ALL TABLES;
 -- Application Tables
 -- ===========================================
 CREATE TABLE osb.tickets (
-    id varchar(30) NOT NULL PRIMARY KEY,
-    user_id varchar(30) NOT NULL,
-    status varchar(30) NOT NULL,
-    cancel_reason varchar(100),
-    entry_amount bigint NOT NULL,
-    winning_amount bigint,
-    transactions_entry_transaction varchar(30),
-    transactions_winning_transaction varchar(30),
-    transactions_cancel_transaction varchar(30),
-    status_updated_at timestamp with time zone NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    updated_at timestamp with time zone NOT NULL,
-    deleted_at timestamp with time zone,
-    free_ticket_promotion_id varchar(30),
-    booster_promotion_id varchar(30),
-    booster_promotion_change_reason varchar(50),
-    accept_odds_change boolean,
-    promo_id varchar(30)
+	ticket_id int8 NOT NULL,
+	movie_id int8 NULL,
+	user_id int8 NULL,
+	"cost" numeric(10, 2) NULL,
+	purchased_at timestamp(3) NULL,
+	CONSTRAINT tickets_pkey PRIMARY KEY (ticket_id)
 );
