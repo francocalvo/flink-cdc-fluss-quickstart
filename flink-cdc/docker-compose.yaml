@@ -14,8 +14,8 @@ services:
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52146e50e9e1136a72bdfb00
-        s3.secret-key: 8700753fa07f62ff464697ff58edff635c7e0ccfd3a60127c882fa6bebcdfbcf
+        s3.access-key: GK207916168ce7c7e9d7d9ff47
+        s3.secret-key: af878540a497f311d805b3f165d95f2d0449bc659216800d66c4bab0445a098d
     ports:
       - "8081:8081"
     volumes:
@@ -37,8 +37,8 @@ services:
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52146e50e9e1136a72bdfb00
-        s3.secret-key: 8700753fa07f62ff464697ff58edff635c7e0ccfd3a60127c882fa6bebcdfbcf
+        s3.access-key: GK207916168ce7c7e9d7d9ff47
+        s3.secret-key: af878540a497f311d805b3f165d95f2d0449bc659216800d66c4bab0445a098d
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
@@ -64,8 +64,8 @@ services:
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52146e50e9e1136a72bdfb00
-        s3.secret-key: 8700753fa07f62ff464697ff58edff635c7e0ccfd3a60127c882fa6bebcdfbcf
+        s3.access-key: GK207916168ce7c7e9d7d9ff47
+        s3.secret-key: af878540a497f311d805b3f165d95f2d0449bc659216800d66c4bab0445a098d
     volumes:
       - ./sql:/opt/flink/sql
     depends_on:
