@@ -29,9 +29,9 @@ ssh -t "$REMOTE_SERVER" "sudo nix-shell -p jq --run '
     echo \"------- SUBSTEP: DATA DELETION ----------\"
     echo \"-----------------------------------------\"
 
-    echo \"🗑️ Deleting data directories (EXCLUDING postgres-source)...\"
-    # Surgical delete: find all /data/ dirs NOT under postgres-source and wipe them
-    find . -name \"data\" -type d -not -path \"./postgres-source/*\" -exec rm -rf {} +
+    echo \"🗑️ Deleting ALL data directories (including postgres-source)...\"
+    # Delete all /data/ directories to ensure complete clean slate
+    find . -name \"data\" -type d -exec rm -rf {} +
 
     echo \"🧹 Removing old .env file before provisioning...\"
     rm -f garage/.env
@@ -109,6 +109,15 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     echo \"--------------------------------------------\"
     echo -e \"\n🚀 Running SQL Client: Postgres -> Fluss...\"
     # Inject keys into the container environment for the SQL variables
+    echo \"📊 Starting CDC for users table...\"
+    podman exec -it flink-sql-client \
+      /opt/flink/bin/sql-client.sh -f /opt/flink/sql/users-cdc.sql
+
+    echo \"🎬 Starting CDC for movies table...\"
+    podman exec -it flink-sql-client \
+      /opt/flink/bin/sql-client.sh -f /opt/flink/sql/movies-cdc.sql
+
+    echo \"🎫 Starting CDC for tickets table...\"
     podman exec -it flink-sql-client \
       /opt/flink/bin/sql-client.sh -f /opt/flink/sql/tickets-cdc.sql
 

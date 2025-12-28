@@ -4,7 +4,7 @@ SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.checkpointing.interval' = '5s';
 SET 'execution.checkpointing.max-concurrent-checkpoints' = '1';
 
--- 1) Fluss catalog (point to coordinator+tablet; Fluss supports comma-separated bootstrap servers) :contentReference[oaicite:3]{index=3}
+-- 1) Fluss catalog (point to coordinator+tablet; Fluss supports comma-separated bootstrap servers)
 CREATE CATALOG fluss_catalog WITH (
     'type' = 'fluss',
     'bootstrap.servers' = '192.168.1.4:9123,192.168.1.4:9124'
@@ -14,17 +14,14 @@ USE CATALOG fluss_catalog;
 CREATE DATABASE IF NOT EXISTS osb_staging;
 USE osb_staging;
 
--- DROP TABLE IF EXISTS tickets_staging;
-
 -- 2) Fluss staging table (append-only log table)
-CREATE TABLE IF NOT EXISTS tickets_staging (
-    ticket_id bigint,
-    movie_id bigint,
+CREATE TABLE IF NOT EXISTS users_staging (
     user_id bigint,
-    cost DECIMAL(10, 2),
-    status STRING,
-    purchased_at timestamp(3),
-    PRIMARY KEY (ticket_id) NOT ENFORCED
+    username STRING,
+    email STRING,
+    full_name STRING,
+    created_at timestamp(3),
+    PRIMARY KEY (user_id) NOT ENFORCED
 )
 WITH (
     'bucket.num' = '4',
@@ -32,18 +29,14 @@ WITH (
     'table.datalake.freshness' = '30s'
 );
 
-
 -- 3) Postgres CDC source (Flink CDC SQL connector)
--- The connector options shown here are the documented ones. :contentReference[oaicite:4]{index=4}
-
-CREATE TEMPORARY TABLE pg_osb_tickets (
-  ticket_id BIGINT,
-  movie_id BIGINT,
+CREATE TEMPORARY TABLE pg_osb_users (
   user_id BIGINT,
-  cost DECIMAL(10,2),
-  status STRING,
-  purchased_at TIMESTAMP(3),
-  PRIMARY KEY (ticket_id) NOT ENFORCED
+  username STRING,
+  email STRING,
+  full_name STRING,
+  created_at TIMESTAMP(3),
+  PRIMARY KEY (user_id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',
   'hostname' = '192.168.1.4',
@@ -52,22 +45,19 @@ CREATE TEMPORARY TABLE pg_osb_tickets (
   'password' = 'root',
   'database-name' = 'source_db',
   'schema-name' = 'osb',
-  'table-name' = 'tickets',
-  'slot.name' = 'cdc_osb_tickets_to_fluss',
+  'table-name' = 'users',
+  'slot.name' = 'cdc_osb_users_to_fluss',
   'decoding.plugin.name' = 'pgoutput',
   'scan.incremental.snapshot.enabled' = 'true'
 );
 
-
 -- 4) Start the replication stream into Fluss
-INSERT INTO tickets_staging
+INSERT INTO users_staging
 SELECT
-    ticket_id,
-    movie_id,
     user_id,
-    cost,
-    status,
-    purchased_at
+    username,
+    email,
+    full_name,
+    created_at
 FROM
-    pg_osb_tickets;
-
+    pg_osb_users;
