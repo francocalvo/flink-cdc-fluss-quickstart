@@ -39,7 +39,9 @@ RUN wget -q "https://repo1.maven.org/maven2/org/apache/paimon/paimon-flink-1.20/
 # 4) Fluss jars (Flink connector + Paimon lake integration for union reads)
 RUN wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-1.20/${FLUSS_VERSION}/fluss-flink-1.20-${FLUSS_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-lake-paimon/${FLUSS_VERSION}/fluss-lake-paimon-${FLUSS_VERSION}.jar" && \
-    wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-tiering/${FLUSS_VERSION}/fluss-flink-tiering-${FLUSS_VERSION}.jar"
+    wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-tiering/${FLUSS_VERSION}/fluss-flink-tiering-${FLUSS_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-fs-s3/${FLUSS_VERSION}/fluss-fs-s3-${FLUSS_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-fs-hdfs/${FLUSS_VERSION}/fluss-fs-hdfs-${FLUSS_VERSION}.jar"
 
 # 5) Enable Flink S3 filesystem plugin (needed for s3:// URIs for checkpoints/savepoints)
 RUN mkdir -p /opt/flink/plugins/s3-fs-hadoop && \
