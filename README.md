@@ -30,71 +30,40 @@ S3-compatible storage.
 
 ## Quick Start
 
-```bash
-docker compose up -d  postgres-source postgres-catalog garage localstack
+1. Bring up containers for both PostgreSQL.
+2. Bring up Garage compose and use the `garage.sh` script.
+3. Copy the access keys to the docker-compose files for both Fluss and Flink.
+4. Bring up the Fluss compose.
+5. Bring up the Flink compose.
 
-chmod +x scripts/garage.sh
-./init-scripts/garage.sh
+Then you can execute the CDC job as: 
 
-chmod +x scripts/kinesis.sh
-./init-scripts/kinesis.sh
-
-docker compose up -d jobmanager taskmanager sql-client
-docker compose up -d zookeeper
-docker compose up -d fluss-coordinator fluss-tablet
-
-# 6. Start remaining services
-docker compose up -d
-
-# 7. Access Flink SQL Client
-docker compose exec sql-client /opt/flink/bin/sql-client.sh
-
+```sh
+podman exec -it flink-sql-client \
+  /opt/flink/bin/sql-client.sh -f /opt/flink/sql/tickets-cdc.sql
 ```
 
-## Using the SQL Client
+And the tiering service like this:
 
-```sql
-ADD JAR 'file:///opt/flink/lib/paimon-flink.jar';
-ADD JAR 'file:///opt/flink/lib/paimon-s3.jar';
-SHOW JARS;
-
--- Check available catalogs
-SHOW CATALOGS;
-
--- Use Paimon
-USE CATALOG paimon_catalog;
-USE lakehouse;
-
--- Start CDC job
-INSERT INTO tickets SELECT * FROM cdc_tickets;
-
--- Query the lakehouse table
-SELECT * FROM tickets;
-SELECT status, COUNT(*), SUM(entry_amount) FROM tickets GROUP BY status;
+```
+docker exec flink-jobmanager /opt/flink/bin/flink run \
+  -Dpipeline.name="Fluss Tiering Service" \
+  -Dparallelism.default=2 \
+  /opt/flink/lib/fluss-flink-tiering-0.8.0-incubating.jar \
+  --fluss.bootstrap.servers 192.168.1.4:9123 \
+  --datalake.format paimon \
+  --datalake.paimon.metastore jdbc \
+  --datalake.paimon.uri "jdbc:postgresql://192.168.1.4:5433/paimon_catalog" \
+  --datalake.paimon.jdbc.user root \
+  --datalake.paimon.jdbc.password root \
+  --datalake.paimon.catalog-key paimon_catalog \
+  --datalake.paimon.warehouse "s3://warehouse/paimon" \
+  --datalake.paimon.s3.endpoint "http://192.168.1.4:3900" \
+  --datalake.paimon.s3.access-key "GK5fefefc0acb90cffed812ba8" \
+  --datalake.paimon.s3.secret-key "3ae8ec7da6166d78eb23c995aa7fa786f6fe6f9a2866839e9afde081c9632dee " \
+  --datalake.paimon.s3.path.style.access true
 ```
 
-## PyFlink Usage
-
-```python
-from pyflink.table import EnvironmentSettings, TableEnvironment
-
-env_settings = EnvironmentSettings.in_streaming_mode()
-t_env = TableEnvironment.create(env_settings)
-
-# Register Paimon catalog
-t_env.execute_sql("""
-    CREATE CATALOG paimon WITH (
-        'type' = 'paimon',
-        'metastore' = 'jdbc',
-        'uri' = 'jdbc:postgresql://postgres-catalog:5432/paimon_catalog',
-        'jdbc.user' = 'root',
-        'jdbc.password' = 'root',
-        'warehouse' = 's3://warehouse/paimon',
-        's3.endpoint' = 'http://garage:3900',
-        's3.path-style-access' = 'true'
-    )
-""")
-```
 
 ## Useful Commands
 
@@ -116,6 +85,29 @@ aws --endpoint-url=http://localhost:3900 s3 ls s3://warehouse/
 docker compose restart jobmanager taskmanager
 ```
 
+In SQL Client:
+
+```
+CREATE CATALOG paimon_catalog WITH (
+     'type' = 'paimon',
+     'metastore' = 'jdbc',
+     'uri' = 'jdbc:postgresql://192.168.1.4:5433/paimon_catalog',
+     'jdbc.user' = 'root',
+     'jdbc.password' = 'root',
+     'catalog-key' = 'paimon_catalog',
+     'warehouse' = 's3://warehouse/paimon',
+     's3.endpoint' = 'http://192.168.1.4:3900',
+     's3.access-key' = 'GK76bd98aae261d4fade11c4fb',
+     's3.secret-key' = '85c9488de84ab82ea412d5e1dfd2e8a12101fe6537e129a1e5547e5bebab6f20',
+     's3.path-style-access' = 'true'
+ );
+
+```
+
 ## Links
 
 https://fluss.apache.org/blog/hands-on-fluss-lakehouse/
+
+## Environment Sync: Sat Dec 27 20:03:20 -03 2025
+- S3 Access Key: GK70b6aca7147bab8271a19ecc
+- S3 Endpoint: http://192.168.1.4:3900
