@@ -7,15 +7,18 @@ services:
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
+        parallelism.default: 1
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
         state.backend.type: rocksdb
         state.checkpoints.dir: s3://warehouse/checkpoints
         state.savepoints.dir: s3://warehouse/savepoints
-        s3.endpoint: http://192.168.1.4:3900
+        s3.endpoint: http://192.168.1.202:3900
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52dfd58afc72fa785017d472
-        s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
+        s3.access-key: GK6ecc2767778e3b34a647878c
+        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
     ports:
       - "8081:8081"
     volumes:
@@ -25,27 +28,31 @@ services:
   taskmanager:
     build:
       context: .
-    container_name: flink-taskmanager
     command: taskmanager
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 8
-        taskmanager.memory.process.size: 2g
+        taskmanager.numberOfTaskSlots: 64
+        taskmanager.memory.process.size: 16g
+        taskmanager.memory.task.off-heap.size: 2g
+        taskmanager.memory.framework.off-heap.size: 1g
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
         state.backend.type: rocksdb
-        s3.endpoint: http://192.168.1.4:3900
+        s3.endpoint: http://192.168.1.202:3900
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52dfd58afc72fa785017d472
-        s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
+        s3.access-key: GK6ecc2767778e3b34a647878c
+        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
     depends_on:
       - jobmanager
-    deploy:
-      replicas: 4
+    # Single powerful TaskManager for PoC performance
+    # deploy:
+    #   replicas: 4
 
   sql-client:
     build:
@@ -60,12 +67,14 @@ services:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         rest.address: jobmanager
-        s3.endpoint: http://192.168.1.4:3900
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
+        s3.endpoint: http://192.168.1.202:3900
         s3.path-style-access: true
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK52dfd58afc72fa785017d472
-        s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
+        s3.access-key: GK6ecc2767778e3b34a647878c
+        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
     volumes:
       - ./sql:/opt/flink/sql
     depends_on:
