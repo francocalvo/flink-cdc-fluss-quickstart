@@ -4,6 +4,7 @@ import random
 import time
 import threading
 import os
+import sys
 from datetime import datetime, timedelta
 from faker import Faker
 
@@ -209,17 +210,71 @@ def update_ticket_statuses():
         time.sleep(5 / SPEED)
 
 
+def check_existing_data():
+    """Check if there are existing users and movies for tickets-only mode"""
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+
+            # Check users count
+            cur.execute("SELECT COUNT(*) FROM osb.users")
+            user_count = cur.fetchone()[0]
+
+            # Check movies count
+            cur.execute("SELECT COUNT(*) FROM osb.movies")
+            movie_count = cur.fetchone()[0]
+
+            return user_count, movie_count
+
+    except Exception as e:
+        print(f"❌ Error checking existing data: {e}")
+        return 0, 0
+
 def main():
-    print(f"🚀 Starting real-time data generator with SPEED={SPEED}")
+    # Check for --tickets-only flag
+    tickets_only = "--tickets-only" in sys.argv
+
+    if tickets_only:
+        print(f"🎫 Starting TICKETS-ONLY data generator with SPEED={SPEED}")
+        print("🚫 Users and Movies generation DISABLED")
+        print("✅ Only generating new tickets and updating statuses")
+
+        # Validate existing data
+        print("🔍 Checking for existing users and movies...")
+        user_count, movie_count = check_existing_data()
+
+        if user_count == 0:
+            print("❌ ERROR: No existing users found!")
+            print("💡 Run without --tickets-only flag first to create users and movies")
+            sys.exit(1)
+
+        if movie_count == 0:
+            print("❌ ERROR: No existing movies found!")
+            print("💡 Run without --tickets-only flag first to create users and movies")
+            sys.exit(1)
+
+        print(f"✅ Found {user_count} users and {movie_count} movies")
+        print("🎯 Ready to generate tickets from existing data")
+
+    else:
+        print(f"🚀 Starting FULL real-time data generator with SPEED={SPEED}")
+        print("✅ Generating users, movies, tickets, and status updates")
+
     print("Press Ctrl+C to stop")
 
-    # Start all generators in separate threads
-    threads = [
-        threading.Thread(target=generate_users, daemon=True),
-        threading.Thread(target=generate_movies, daemon=True),
-        threading.Thread(target=generate_tickets, daemon=True),
-        threading.Thread(target=update_ticket_statuses, daemon=True),
-    ]
+    # Start generators based on mode
+    if tickets_only:
+        threads = [
+            threading.Thread(target=generate_tickets, daemon=True),
+            threading.Thread(target=update_ticket_statuses, daemon=True),
+        ]
+    else:
+        threads = [
+            threading.Thread(target=generate_users, daemon=True),
+            threading.Thread(target=generate_movies, daemon=True),
+            threading.Thread(target=generate_tickets, daemon=True),
+            threading.Thread(target=update_ticket_statuses, daemon=True),
+        ]
 
     for thread in threads:
         thread.start()
