@@ -50,15 +50,15 @@ docker exec flink-jobmanager /opt/flink/bin/flink run \
   -Dpipeline.name="Fluss Tiering Service" \
   -Dparallelism.default=2 \
   /opt/flink/lib/fluss-flink-tiering-0.8.0-incubating.jar \
-  --fluss.bootstrap.servers 192.168.1.4:9123 \
+  --fluss.bootstrap.servers 192.168.1.202:9123 \
   --datalake.format paimon \
   --datalake.paimon.metastore jdbc \
-  --datalake.paimon.uri "jdbc:postgresql://192.168.1.4:5433/paimon_catalog" \
+  --datalake.paimon.uri "jdbc:postgresql://192.168.1.202:5433/paimon_catalog" \
   --datalake.paimon.jdbc.user root \
   --datalake.paimon.jdbc.password root \
   --datalake.paimon.catalog-key paimon_catalog \
   --datalake.paimon.warehouse "s3://warehouse/paimon" \
-  --datalake.paimon.s3.endpoint "http://192.168.1.4:3900" \
+  --datalake.paimon.s3.endpoint "http://192.168.1.202:3900" \
   --datalake.paimon.s3.access-key "GK5fefefc0acb90cffed812ba8" \
   --datalake.paimon.s3.secret-key "3ae8ec7da6166d78eb23c995aa7fa786f6fe6f9a2866839e9afde081c9632dee " \
   --datalake.paimon.s3.path.style.access true
@@ -91,12 +91,12 @@ In SQL Client:
 CREATE CATALOG paimon_catalog WITH (
      'type' = 'paimon',
      'metastore' = 'jdbc',
-     'uri' = 'jdbc:postgresql://192.168.1.4:5433/paimon_catalog',
+     'uri' = 'jdbc:postgresql://192.168.1.202:5433/paimon_catalog',
      'jdbc.user' = 'root',
      'jdbc.password' = 'root',
      'catalog-key' = 'paimon_catalog',
      'warehouse' = 's3://warehouse/paimon',
-     's3.endpoint' = 'http://192.168.1.4:3900',
+     's3.endpoint' = 'http://192.168.1.202:3900',
      's3.access-key' = 'GK76bd98aae261d4fade11c4fb',
      's3.secret-key' = '85c9488de84ab82ea412d5e1dfd2e8a12101fe6537e129a1e5547e5bebab6f20',
      's3.path-style-access' = 'true'
@@ -110,4 +110,4 @@ https://fluss.apache.org/blog/hands-on-fluss-lakehouse/
 
 ## Environment Sync: Sat Dec 27 20:03:20 -03 2025
 - S3 Access Key: GK70b6aca7147bab8271a19ecc
-- S3 Endpoint: http://192.168.1.4:3900
+- S3 Endpoint: http://192.168.1.202:3900

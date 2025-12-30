@@ -2,8 +2,13 @@
 set -euo pipefail
 
 # --- Host Configuration ---
-REMOTE_SERVER="muad@192.168.1.4"
-REMOTE_DIR="/home/muad/streaming"
+REMOTE_SERVER="calvo@192.168.1.202"
+REMOTE_DIR="/mefitis/streaming"
+
+echo "🚀 Starting Deployment Script..."
+
+echo "📤 0. Syncing Local Changes to Remote Server..."
+bash sync.sh
 
 echo "🌐 1. Connecting to $REMOTE_SERVER for Remote Environment Reset..."
 
@@ -110,16 +115,20 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     echo -e \"\n🚀 Running SQL Client: Postgres -> Fluss...\"
     # Inject keys into the container environment for the SQL variables
     echo \"📊 Starting CDC for users table...\"
-    podman exec -it flink-sql-client \
+    docker exec -it flink-sql-client \
       /opt/flink/bin/sql-client.sh -f /opt/flink/sql/users-cdc.sql
 
     echo \"🎬 Starting CDC for movies table...\"
-    podman exec -it flink-sql-client \
+    docker exec -it flink-sql-client \
       /opt/flink/bin/sql-client.sh -f /opt/flink/sql/movies-cdc.sql
 
     echo \"🎫 Starting CDC for tickets table...\"
-    podman exec -it flink-sql-client \
+    docker exec -it flink-sql-client \
       /opt/flink/bin/sql-client.sh -f /opt/flink/sql/tickets-cdc.sql
+
+    echo \"📊 Starting revenue analytics job...\"
+    docker exec -it flink-sql-client \
+      /opt/flink/bin/sql-client.sh -f /opt/flink/sql/revenue-analytics.sql
 
 
     echo \"--------------------------------------------\"
@@ -128,19 +137,22 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     echo \"📦 Starting Fluss Tiering Service...\"
         docker exec flink-jobmanager /opt/flink/bin/flink run \\
           -Dpipeline.name=\"Fluss Tiering Service\" \\
-          -Dparallelism.default=2 \\
+          -Dparallelism.default=4 \\
+          -Dexecution.checkpointing.interval=30s \\
           -Dstate.checkpoints.dir=\"s3://warehouse/checkpoints/tiering\" \\
           -Ds3.multiobjectdelete.enable=false \\
+          -Dtaskmanager.memory.network.fraction=0.2 \\
+          -Dtaskmanager.memory.managed.fraction=0.6 \\
           /opt/flink/lib/fluss-flink-tiering-0.8.0-incubating.jar \\
-          --fluss.bootstrap.servers 192.168.1.4:9123 \\
+          --fluss.bootstrap.servers 192.168.1.202:9123 \\
           --datalake.format paimon \\
           --datalake.paimon.metastore jdbc \\
-          --datalake.paimon.uri \"jdbc:postgresql://192.168.1.4:5433/paimon_catalog\" \\
+          --datalake.paimon.uri \"jdbc:postgresql://192.168.1.202:5433/paimon_catalog\" \\
           --datalake.paimon.jdbc.user root \\
           --datalake.paimon.jdbc.password root \\
           --datalake.paimon.catalog-key paimon_catalog \\
           --datalake.paimon.warehouse \"s3://warehouse/paimon\" \\
-          --datalake.paimon.s3.endpoint \"http://192.168.1.4:3900\" \\
+          --datalake.paimon.s3.endpoint \"http://192.168.1.202:3900\" \\
           --datalake.paimon.s3.access-key \"${GARAGE_ACCESS_KEY}\" \\
           --datalake.paimon.s3.secret-key \"${GARAGE_SECRET_KEY}\" \\
           --datalake.paimon.s3.path.style.access true

@@ -3,5 +3,5 @@ rsync  \
   --exclude='streaming-gradle/.gradle' --exclude='streaming-gradle/lib/build' --exclude='streaming-gradle/build' \
   --exclude='streaming-gradle/lib/.gradle' --exclude='streaming-gradle/lib/bin' \
   /Users/francocalvo/draftea/pocs/streaming/ \
-  muad@192.168.1.4:/home/muad/streaming/
+  calvo@192.168.1.202:/mefitis/streaming/
 
