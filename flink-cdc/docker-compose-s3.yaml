@@ -1,0 +1,84 @@
+services:
+  jobmanager:
+    build:
+      context: .
+    container_name: flink-jobmanager
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        parallelism.default: 1
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
+        state.backend.type: rocksdb
+        state.checkpoints.dir: ${S3_BASE}/checkpoints
+        state.savepoints.dir: ${S3_BASE}/savepoints
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: true
+        s3.multiobjectdelete.enable: false
+        s3.entropy.enabled: true
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data/flink:/opt/flink/data
+      - ./sql:/opt/flink/sql
+
+  taskmanager:
+    build:
+      context: .
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 64
+        taskmanager.memory.process.size: 16g
+        taskmanager.memory.task.off-heap.size: 2g
+        taskmanager.memory.framework.off-heap.size: 1g
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
+        state.backend.type: rocksdb
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: true
+        s3.multiobjectdelete.enable: false
+        s3.entropy.enabled: true
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
+    volumes:
+      - ./data/flink:/opt/flink/data
+      - ./sql:/opt/flink/sql
+    depends_on:
+      - jobmanager
+    # Single powerful TaskManager for PoC performance
+    # deploy:
+    #   replicas: 4
+
+  sql-client:
+    build:
+      context: .
+    container_name: flink-sql-client
+    command: >
+      bash -c "
+        sleep 30 &&
+        /opt/flink/bin/sql-client.sh
+      "
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        rest.address: jobmanager
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: true
+        s3.multiobjectdelete.enable: false
+        s3.entropy.enabled: true
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
+    volumes:
+      - ./sql:/opt/flink/sql
+    depends_on:
+      - jobmanager
+      - taskmanager
+    stdin_open: true
+    tty: true
