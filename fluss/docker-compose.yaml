@@ -1,4 +1,3 @@
-version: "3.9"
 
 x-fluss-image: &fluss_image
   image: fluss-paimon-jdbc:0.8.0
@@ -36,7 +35,7 @@ services:
         zookeeper.address: zookeeper:2181
 
         bind.listeners: INTERNAL://fluss-coordinator:0, CLIENT://fluss-coordinator:9123
-        advertised.listeners: CLIENT://192.168.1.4:9123
+        advertised.listeners: CLIENT://192.168.1.202:9123
         internal.listener.name: INTERNAL
 
         remote.data.dir: /tmp/fluss/remote-data
@@ -46,15 +45,15 @@ services:
 
         # These are passed to Paimon after stripping "datalake.paimon." :contentReference[oaicite:4]{index=4}
         datalake.paimon.metastore: jdbc
-        datalake.paimon.uri: jdbc:postgresql://192.168.1.4:5433/paimon_catalog
+        datalake.paimon.uri: jdbc:postgresql://192.168.1.202:5433/paimon_catalog
         datalake.paimon.jdbc.user: root
         datalake.paimon.jdbc.password: root
         datalake.paimon.catalog-key: paimon_catalog
 
         datalake.paimon.warehouse: s3://warehouse/paimon
-        datalake.paimon.s3.endpoint: http://192.168.1.4:3900
-        datalake.paimon.s3.access-key: GK52dfd58afc72fa785017d472
-        datalake.paimon.s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
+        datalake.paimon.s3.endpoint: http://192.168.1.202:3900
+        datalake.paimon.s3.access-key: GK6ecc2767778e3b34a647878c
+        datalake.paimon.s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
         datalake.paimon.s3.path.style.access: true
     volumes:
       - ./data/fluss/remote:/tmp/fluss/remote-data
@@ -74,7 +73,7 @@ services:
         tablet-server.id: 0
 
         bind.listeners: INTERNAL://fluss-tablet:0, CLIENT://fluss-tablet:9123
-        advertised.listeners: CLIENT://192.168.1.4:9124
+        advertised.listeners: CLIENT://192.168.1.202:9124
         internal.listener.name: INTERNAL
 
         data.dir: /tmp/fluss/data
@@ -83,15 +82,15 @@ services:
 
         datalake.format: paimon
         datalake.paimon.metastore: jdbc
-        datalake.paimon.uri: jdbc:postgresql://192.168.1.4:5433/paimon_catalog
+        datalake.paimon.uri: jdbc:postgresql://192.168.1.202:5433/paimon_catalog
         datalake.paimon.jdbc.user: root
         datalake.paimon.jdbc.password: root
         datalake.paimon.catalog-key: paimon_catalog
 
         datalake.paimon.warehouse: s3://warehouse/paimon
-        datalake.paimon.s3.endpoint: http://192.168.1.4:3900
-        datalake.paimon.s3.access-key: GK52dfd58afc72fa785017d472
-        datalake.paimon.s3.secret-key: 9f0490ec49886f9f1c191e5d0c6022d3e1a3331bba21c110a8d53b740f00890d
+        datalake.paimon.s3.endpoint: http://192.168.1.202:3900
+        datalake.paimon.s3.access-key: GK6ecc2767778e3b34a647878c
+        datalake.paimon.s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
         datalake.paimon.s3.path.style.access: true
     volumes:
       - ./data/fluss/tablet:/tmp/fluss/data
