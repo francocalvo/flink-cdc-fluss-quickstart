@@ -22,12 +22,13 @@ CREATE TABLE IF NOT EXISTS movies_staging (
     duration_minutes int,
     start_date timestamp(3),
     created_at timestamp(3),
+    WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
     PRIMARY KEY (movie_id) NOT ENFORCED
 )
 WITH (
     'bucket.num' = '4',
     'table.datalake.enabled' = 'true',
-    'table.datalake.freshness' = '30s'
+    'table.datalake.freshness' = '60s'
 );
 
 -- 3) Postgres CDC source (Flink CDC SQL connector)
@@ -38,6 +39,7 @@ CREATE TEMPORARY TABLE pg_osb_movies (
   duration_minutes INT,
   start_date TIMESTAMP(3),
   created_at TIMESTAMP(3),
+  WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
   PRIMARY KEY (movie_id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',

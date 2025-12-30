@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users_staging (
     email STRING,
     full_name STRING,
     created_at timestamp(3),
+    WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
     PRIMARY KEY (user_id) NOT ENFORCED
 )
 WITH (
@@ -36,6 +37,7 @@ CREATE TEMPORARY TABLE pg_osb_users (
   email STRING,
   full_name STRING,
   created_at TIMESTAMP(3),
+  WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
   PRIMARY KEY (user_id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',

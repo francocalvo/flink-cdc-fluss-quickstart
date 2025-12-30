@@ -4,6 +4,9 @@ SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.checkpointing.interval' = '5s';
 SET 'execution.checkpointing.max-concurrent-checkpoints' = '1';
 
+-- Event time processing optimization
+SET 'pipeline.watermark-alignment.allow-unaligned-source-splits' = 'true';
+
 -- 1) Fluss catalog (point to coordinator+tablet; Fluss supports comma-separated bootstrap servers) :contentReference[oaicite:3]{index=3}
 CREATE CATALOG fluss_catalog WITH (
     'type' = 'fluss',
@@ -16,7 +19,7 @@ USE osb_staging;
 
 -- DROP TABLE IF EXISTS tickets_staging;
 
--- 2) Fluss staging table (append-only log table)
+-- 2) Fluss staging table (append-only log table) with event time
 CREATE TABLE IF NOT EXISTS tickets_staging (
     ticket_id bigint,
     movie_id bigint,
@@ -24,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tickets_staging (
     cost DECIMAL(10, 2),
     status STRING,
     purchased_at timestamp(3),
+    WATERMARK FOR purchased_at AS purchased_at - INTERVAL '3' SECOND,
     PRIMARY KEY (ticket_id) NOT ENFORCED
 )
 WITH (
@@ -43,6 +47,7 @@ CREATE TEMPORARY TABLE pg_osb_tickets (
   cost DECIMAL(10,2),
   status STRING,
   purchased_at TIMESTAMP(3),
+  WATERMARK FOR purchased_at AS purchased_at - INTERVAL '3' SECOND,
   PRIMARY KEY (ticket_id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',

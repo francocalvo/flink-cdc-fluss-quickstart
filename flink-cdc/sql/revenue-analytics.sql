@@ -1,7 +1,15 @@
--- Real-time revenue analytics per movie
+-- Real-time revenue analytics per movie with event time processing
 SET 'execution.runtime-mode' = 'streaming';
 SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.checkpointing.interval' = '10s';
+
+-- Event time processing optimization for revenue analytics
+SET 'table.exec.emit.early-fire.enabled' = 'true';
+SET 'table.exec.emit.early-fire.delay' = '1s';
+SET 'table.optimizer.agg-phase-strategy' = 'TWO_PHASE';
+SET 'table.exec.mini-batch.enabled' = 'true';
+SET 'table.exec.mini-batch.allow-latency' = '1s';
+SET 'table.exec.mini-batch.size' = '500';
 
 -- Use Fluss catalog
 CREATE CATALOG fluss_catalog WITH (
@@ -34,7 +42,7 @@ CREATE TABLE movie_revenue_realtime (
     'table.datalake.freshness' = '60s'
 );
 
--- Continuous query to aggregate revenue by movie with status breakdown
+-- Event time-based revenue aggregation with proper windowing
 INSERT INTO movie_revenue_realtime
 SELECT
     t.movie_id,
@@ -53,4 +61,5 @@ SELECT
     MAX(t.purchased_at) as last_ticket_purchased
 FROM tickets_staging t
 JOIN movies_staging m ON t.movie_id = m.movie_id
+WHERE t.purchased_at IS NOT NULL  -- Ensure event time is available
 GROUP BY t.movie_id, m.title, m.start_date, m.duration_minutes;
