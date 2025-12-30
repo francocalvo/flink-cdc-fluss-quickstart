@@ -1,4 +1,4 @@
-[#](#) Local Data Lakehouse Stack
+# Local Data Lakehouse Stack
 
 Local development environment with Flink 2.1 CDC, Paimon, Fluss, and
 S3-compatible storage.
@@ -9,26 +9,17 @@ S3-compatible storage.
 | -------------------- | ----------------------- | -------------------------------------- |
 | PostgreSQL (catalog) | 5433                    | Paimon JDBC catalog metastore          |
 | PostgreSQL (source)  | 5432                    | CDC source database                    |
-| LocalStack           | 4566                    | Kinesis local                          |
 | Garage               | 3900 (S3), 3903 (Admin) | S3-compatible storage for Paimon/Fluss |
-| Flink 2.1 JobManager | 8081                    | Flink Web UI                           |
 | Flink SQL Client     | -                       | Interactive SQL                        |
 | Fluss Coordinator    | 9123                    | Streaming storage                      |
 | ZooKeeper            | 2181                    | Fluss coordination                     |
 
-## Versions
-
-| Component      | Version          |
-| -------------- | ---------------- |
-| Apache Flink   | 2.1.0            |
-| Apache Paimon  | 1.1.0            |
-| Flink CDC      | 3.3.0            |
-| JDBC Connector | 4.0.0-2.0        |
-| AWS Connectors | 5.0.0-1.20       |
-| Apache Fluss   | 0.8.0-incubating |
-| PostgreSQL     | 14               |
-
 ## Quick Start
+
+You can do the deployment automatically using the `deploy.sh` script. You will
+need to update all IPs to the local IP of your server.
+
+The script does something like this:
 
 1. Bring up containers for both PostgreSQL.
 2. Bring up Garage compose and use the `garage.sh` script.
@@ -36,7 +27,7 @@ S3-compatible storage.
 4. Bring up the Fluss compose.
 5. Bring up the Flink compose.
 
-Then you can execute the CDC job as: 
+Then you can execute the CDC job as:
 
 ```sh
 podman exec -it flink-sql-client \
@@ -63,7 +54,6 @@ docker exec flink-jobmanager /opt/flink/bin/flink run \
   --datalake.paimon.s3.secret-key "3ae8ec7da6166d78eb23c995aa7fa786f6fe6f9a2866839e9afde081c9632dee " \
   --datalake.paimon.s3.path.style.access true
 ```
-
 
 ## Useful Commands
 
@@ -109,5 +99,6 @@ CREATE CATALOG paimon_catalog WITH (
 https://fluss.apache.org/blog/hands-on-fluss-lakehouse/
 
 ## Environment Sync: Sat Dec 27 20:03:20 -03 2025
+
 - S3 Access Key: GK70b6aca7147bab8271a19ecc
 - S3 Endpoint: http://192.168.1.202:3900
