@@ -6,7 +6,7 @@ SET 'execution.checkpointing.interval' = '10s';
 -- Use Fluss catalog
 CREATE CATALOG fluss_catalog WITH (
     'type' = 'fluss',
-    'bootstrap.servers' = '192.168.1.4:9123,192.168.1.4:9124'
+    'bootstrap.servers' = '192.168.1.202:9123,192.168.1.202:9124'
 );
 USE CATALOG fluss_catalog;
 USE osb_staging;
@@ -31,7 +31,7 @@ CREATE TABLE movie_revenue_realtime (
 ) WITH (
     'bucket.num' = '4',
     'table.datalake.enabled' = 'true',
-    'table.datalake.freshness' = '10s'
+    'table.datalake.freshness' = '60s'
 );
 
 -- Continuous query to aggregate revenue by movie with status breakdown

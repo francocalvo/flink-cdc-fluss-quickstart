@@ -7,7 +7,7 @@ SET 'execution.checkpointing.max-concurrent-checkpoints' = '1';
 -- 1) Fluss catalog (point to coordinator+tablet; Fluss supports comma-separated bootstrap servers) :contentReference[oaicite:3]{index=3}
 CREATE CATALOG fluss_catalog WITH (
     'type' = 'fluss',
-    'bootstrap.servers' = '192.168.1.4:9123,192.168.1.4:9124'
+    'bootstrap.servers' = '192.168.1.202:9123,192.168.1.202:9124'
 );
 USE CATALOG fluss_catalog;
 
@@ -46,7 +46,7 @@ CREATE TEMPORARY TABLE pg_osb_tickets (
   PRIMARY KEY (ticket_id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',
-  'hostname' = '192.168.1.4',
+  'hostname' = '192.168.1.202',
   'port' = '5432',
   'username' = 'root',
   'password' = 'root',
