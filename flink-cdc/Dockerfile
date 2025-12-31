@@ -6,10 +6,12 @@ USER root
 # ---- Versions ----
 ENV FLINK_CDC_VERSION=3.5.0
 ENV PAIMON_VERSION=1.3.1
+ENV ICEBERG_VERSION=1.9.1
 ENV FLUSS_VERSION=0.8.0-incubating
 ENV POSTGRES_JDBC_VERSION=42.7.3
 ENV MYSQL_JDBC_VERSION=8.3.0
-ENV FLINK_SHADED_HADOOP_2_UBER_VERSION=2.8.3-10.0
+# Use Hadoop 3.x as required by Fluss Iceberg integration
+ENV HADOOP_VERSION=3.3.5-2
 
 # ---- OS deps ----
 RUN apt-get update -y && \
@@ -36,24 +38,39 @@ RUN wget -q "https://repo1.maven.org/maven2/org/apache/paimon/paimon-flink-1.20/
     wget -q "https://repo1.maven.org/maven2/org/apache/paimon/paimon-s3/${PAIMON_VERSION}/paimon-s3-${PAIMON_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/paimon/paimon-flink-action/${PAIMON_VERSION}/paimon-flink-action-${PAIMON_VERSION}.jar"
 
-# 4) Fluss jars (Flink connector + Paimon lake integration for union reads)
+# 4) Iceberg jars (Flink 1.20 runtime + AWS bundle + FileIO dependencies)
+#    Per Fluss docs: https://fluss.apache.org/docs/streaming-lakehouse/integrate-data-lakes/iceberg/
+RUN wget -q "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-1.20/${ICEBERG_VERSION}/iceberg-flink-runtime-1.20-${ICEBERG_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-aws/${ICEBERG_VERSION}/iceberg-aws-${ICEBERG_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-aws-bundle/${ICEBERG_VERSION}/iceberg-aws-bundle-${ICEBERG_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/dev/failsafe/failsafe/3.3.2/failsafe-3.3.2.jar"
+
+# 5) Fluss jars (Flink connector + lake integrations + S3 filesystem)
+#    Per Fluss docs, fluss-fs-s3 goes in lib for remote storage support
 RUN wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-1.20/${FLUSS_VERSION}/fluss-flink-1.20-${FLUSS_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-lake-paimon/${FLUSS_VERSION}/fluss-lake-paimon-${FLUSS_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-lake-iceberg/${FLUSS_VERSION}/fluss-lake-iceberg-${FLUSS_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-flink-tiering/${FLUSS_VERSION}/fluss-flink-tiering-${FLUSS_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-fs-s3/${FLUSS_VERSION}/fluss-fs-s3-${FLUSS_VERSION}.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/fluss/fluss-fs-hdfs/${FLUSS_VERSION}/fluss-fs-hdfs-${FLUSS_VERSION}.jar"
 
-# 5) Enable Flink S3 filesystem plugin (needed for s3:// URIs for checkpoints/savepoints)
+# 6) Enable Flink S3 filesystem plugin (needed for s3:// URIs for checkpoints/savepoints)
 RUN mkdir -p /opt/flink/plugins/s3-fs-hadoop && \
     cp /opt/flink/opt/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3-fs-hadoop/
 
-# 6) Flink shaded Hadoop uber jar (required for Paimon JDBC metastore)
-RUN wget -q "https://repo1.maven.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/${FLINK_SHADED_HADOOP_2_UBER_VERSION}/flink-shaded-hadoop-2-uber-${FLINK_SHADED_HADOOP_2_UBER_VERSION}.jar"
+# 7) Hadoop 3.x dependencies (REQUIRED for Fluss Iceberg integration)
+#    - hadoop-apache: Core Hadoop classes (replaces flink-shaded-hadoop-2-uber)
+#    - hadoop-aws: S3AFileSystem for s3a:// paths used by Iceberg HadoopCatalog
+#    - aws-java-sdk-bundle: AWS SDK required by hadoop-aws
+#    See: https://fluss.apache.org/docs/streaming-lakehouse/integrate-data-lakes/iceberg/
+RUN wget -q "https://repo1.maven.org/maven2/io/trino/hadoop/hadoop-apache/${HADOOP_VERSION}/hadoop-apache-${HADOOP_VERSION}.jar" && \
+    wget -q "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.5/hadoop-aws-3.3.5.jar" && \
+    wget -q "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.367/aws-java-sdk-bundle-1.12.367.jar"
 
-# 7) Kafka SQL connector (useful for streaming pipelines)
+# 8) Kafka SQL connector (useful for streaming pipelines)
 RUN wget -q "https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.4.0-1.20/flink-sql-connector-kafka-3.4.0-1.20.jar"
 
-# 8) Format jars (Avro, Parquet)
+# 9) Format jars (Avro, Parquet)
 RUN wget -q "https://repo1.maven.org/maven2/org/apache/flink/flink-sql-avro/1.20.0/flink-sql-avro-1.20.0.jar" && \
     wget -q "https://repo1.maven.org/maven2/org/apache/flink/flink-sql-parquet/1.20.0/flink-sql-parquet-1.20.0.jar"
 

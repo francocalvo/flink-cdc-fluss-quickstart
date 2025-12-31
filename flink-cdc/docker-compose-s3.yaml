@@ -21,6 +21,7 @@ services:
         s3.secret-key: ${S3_SECRET_KEY}
     ports:
       - "8081:8081"
+      - "8083:8083"
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql

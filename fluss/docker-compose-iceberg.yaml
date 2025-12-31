@@ -1,0 +1,88 @@
+x-fluss-image: &fluss_image
+  image: fluss-iceberg-jdbc:0.8.0
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      FLUSS_TAG: 0.8.0-incubating
+      ICEBERG_VERSION: 1.9.1
+      PGJDBC_VERSION: 42.7.8
+
+services:
+  zookeeper:
+    image: zookeeper:3.9.2
+    container_name: zookeeper
+    restart: unless-stopped
+    ports: ["2181:2181"]
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888;2181
+    volumes:
+      - ./data/zookeeper/data:/data
+      - ./data/zookeeper/datalog:/datalog
+
+  fluss-coordinator:
+    <<: *fluss_image
+    container_name: fluss-coordinator
+    restart: unless-stopped
+    command: coordinatorServer
+    depends_on: [zookeeper]
+    ports: ["9123:9123"]
+    environment:
+      AWS_ACCESS_KEY_ID: GK6ecc2767778e3b34a647878c
+      AWS_SECRET_ACCESS_KEY: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+      FLUSS_PROPERTIES: |
+        zookeeper.address: zookeeper:2181
+
+        bind.listeners: INTERNAL://fluss-coordinator:0, CLIENT://fluss-coordinator:9123
+        advertised.listeners: CLIENT://192.168.1.202:9123
+        internal.listener.name: INTERNAL
+
+        remote.data.dir: /tmp/fluss/remote-data
+
+        # --- Lakehouse: Iceberg (Hadoop catalog + MinIO/S3 warehouse) ---
+        datalake.format: iceberg
+
+        # Iceberg configuration with Hadoop catalog
+        datalake.iceberg.type: hadoop
+        datalake.iceberg.warehouse: s3://warehouse/iceberg
+        datalake.iceberg.hadoop.fs.s3a.endpoint: http://192.168.1.202:3900
+        datalake.iceberg.hadoop.fs.s3a.access.key: GK6ecc2767778e3b34a647878c
+        datalake.iceberg.hadoop.fs.s3a.secret.key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+        datalake.iceberg.hadoop.fs.s3a.path.style.access: true
+    volumes:
+      - ./data/fluss/remote:/tmp/fluss/remote-data
+
+  fluss-tablet:
+    <<: *fluss_image
+    container_name: fluss-tablet
+    restart: unless-stopped
+    command: tabletServer
+    depends_on: [fluss-coordinator]
+    ports: ["9124:9123"]
+    environment:
+      AWS_ACCESS_KEY_ID: GK6ecc2767778e3b34a647878c
+      AWS_SECRET_ACCESS_KEY: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+      FLUSS_PROPERTIES: |
+        zookeeper.address: zookeeper:2181
+
+        tablet-server.id: 0
+
+        bind.listeners: INTERNAL://fluss-tablet:0, CLIENT://fluss-tablet:9123
+        advertised.listeners: CLIENT://192.168.1.202:9124
+        internal.listener.name: INTERNAL
+
+        data.dir: /tmp/fluss/data
+        remote.data.dir: /tmp/fluss/remote-data
+        kv.snapshot.interval: 0s
+
+        datalake.format: iceberg
+        datalake.iceberg.type: hadoop
+        datalake.iceberg.warehouse: s3://warehouse/iceberg
+        datalake.iceberg.hadoop.fs.s3a.endpoint: http://192.168.1.202:3900
+        datalake.iceberg.hadoop.fs.s3a.access.key: GK6ecc2767778e3b34a647878c
+        datalake.iceberg.hadoop.fs.s3a.secret.key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+        datalake.iceberg.hadoop.fs.s3a.path.style.access: true
+    volumes:
+      - ./data/fluss/tablet:/tmp/fluss/data
+      - ./data/fluss/remote:/tmp/fluss/remote-data

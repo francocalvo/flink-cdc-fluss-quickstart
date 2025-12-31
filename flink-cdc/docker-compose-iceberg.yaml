@@ -5,6 +5,8 @@ services:
     container_name: flink-jobmanager
     command: jobmanager
     environment:
+      AWS_ACCESS_KEY_ID: GK6ecc2767778e3b34a647878c
+      AWS_SECRET_ACCESS_KEY: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         parallelism.default: 1
@@ -31,6 +33,8 @@ services:
       context: .
     command: taskmanager
     environment:
+      AWS_ACCESS_KEY_ID: GK6ecc2767778e3b34a647878c
+      AWS_SECRET_ACCESS_KEY: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 64

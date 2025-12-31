@@ -5,7 +5,33 @@ set -euo pipefail
 REMOTE_SERVER="calvo@192.168.1.202"
 REMOTE_DIR="/mefitis/streaming"
 
+# --- Parse command line arguments ---
+DATALAKE_FORMAT="paimon"  # Default to Paimon
+BUILD_FLAG=""            # Default no forced build
+
+for arg in "$@"; do
+    case $arg in
+        --iceberg)
+            DATALAKE_FORMAT="iceberg"
+            shift
+            ;;
+        --build)
+            BUILD_FLAG="--build"
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            echo "Usage: $0 [--iceberg] [--build]"
+            exit 1
+            ;;
+    esac
+done
+
 echo "🚀 Starting S3 Deployment Script..."
+echo "📊 Datalake Format: $DATALAKE_FORMAT"
+if [ -n "$BUILD_FLAG" ]; then
+    echo "🔨 Force Build: Enabled"
+fi
 
 # --- Load S3 Configuration from .env ---
 if [ ! -f ".env" ]; then
@@ -34,7 +60,7 @@ S3_ENDPOINT="${S3_ENDPOINT:-https://s3.amazonaws.com}"
 if [[ "$S3_DIR" == *"/"* ]]; then
     S3_BUCKET=$(echo "$S3_DIR" | cut -d'/' -f1)
     S3_PREFIX=$(echo "$S3_DIR" | cut -d'/' -f2-)
-    S3_BASE="s3://${S3_BUCKET}/${S3_PREFIX}"
+    S3_BASE="s3a://${S3_BUCKET}/${S3_PREFIX}"
 else
     S3_BUCKET="$S3_DIR"
     S3_PREFIX=""
@@ -65,7 +91,9 @@ ssh -t "$REMOTE_SERVER" "sudo nix-shell -p jq --run '
     echo \"🛑 Stopping all services...\"
 
     docker compose -f flink-cdc/docker-compose-s3.yaml down -v || true
+    docker compose -f flink-cdc/docker-compose-iceberg-s3.yaml down -v || true
     docker compose -f fluss/docker-compose-s3.yaml down -v || true
+    docker compose -f fluss/docker-compose-iceberg-s3.yaml down -v || true
     docker compose -f postgres-catalog/docker-compose.yaml down -v || true
     docker compose -f postgres-source/docker-compose.yaml down -v || true
 
@@ -108,14 +136,20 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     export S3_SECRET_KEY=\"$S3_SECRET_KEY\"
     export S3_ENDPOINT=\"$S3_ENDPOINT\"
     export S3_BASE=\"$S3_BASE\"
+    export DATALAKE_FORMAT=\"$DATALAKE_FORMAT\"
 
     echo \"-------------------------------------------\"
     echo \"------- SUBSTEP: STREAMING LAYER ----------\"
     echo \"-------------------------------------------\"
 
     echo \"🌊 Starting Fluss & 🐿️ Flink CDC with S3 configuration...\"
-    docker compose -f fluss/docker-compose-s3.yaml up -d
-    docker compose -f flink-cdc/docker-compose-s3.yaml up -d
+    if [ \"$DATALAKE_FORMAT\" = \"iceberg\" ]; then
+        docker compose -f fluss/docker-compose-iceberg-s3.yaml up -d $BUILD_FLAG
+        docker compose -f flink-cdc/docker-compose-iceberg-s3.yaml up -d $BUILD_FLAG
+    else
+        docker compose -f fluss/docker-compose-s3.yaml up -d $BUILD_FLAG
+        docker compose -f flink-cdc/docker-compose-s3.yaml up -d $BUILD_FLAG
+    fi
 
     echo \"⏳ Waiting for Flink JobManager to go live...\"
     until curl -s http://localhost:8081/overview > /dev/null; do sleep 2; done
@@ -145,11 +179,13 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     echo \"------- SUBSTEP: Tiering service ----------\"
     echo \"--------------------------------------------\"
     echo \"📦 Starting Fluss Tiering Service with S3...\"
+
+    if [ \"\$DATALAKE_FORMAT\" = \"paimon\" ]; then
         docker exec flink-jobmanager /opt/flink/bin/flink run \\
           -Dpipeline.name=\"Fluss Tiering Service\" \\
           -Dparallelism.default=4 \\
           -Dexecution.checkpointing.interval=30s \\
-          -Dstate.checkpoints.dir=\"${S3_BASE}/checkpoints/tiering\" \\
+          -Dstate.checkpoints.dir=\"\${S3_BASE}/checkpoints/tiering\" \\
           -Ds3.multiobjectdelete.enable=false \\
           -Dtaskmanager.memory.network.fraction=0.2 \\
           -Dtaskmanager.memory.managed.fraction=0.6 \\
@@ -161,11 +197,30 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
           --datalake.paimon.jdbc.user root \\
           --datalake.paimon.jdbc.password root \\
           --datalake.paimon.catalog-key paimon_catalog \\
-          --datalake.paimon.warehouse \"${S3_BASE}/paimon\" \\
-          --datalake.paimon.s3.endpoint \"$S3_ENDPOINT\" \\
-          --datalake.paimon.s3.access-key \"$S3_ACCESS_KEY\" \\
-          --datalake.paimon.s3.secret-key \"$S3_SECRET_KEY\" \\
+          --datalake.paimon.warehouse \"\${S3_BASE}/paimon\" \\
+          --datalake.paimon.s3.endpoint \"\$S3_ENDPOINT\" \\
+          --datalake.paimon.s3.access-key \"\$S3_ACCESS_KEY\" \\
+          --datalake.paimon.s3.secret-key \"\$S3_SECRET_KEY\" \\
           --datalake.paimon.s3.path.style.access true
+    else
+        docker exec flink-jobmanager /opt/flink/bin/flink run \\
+          -Dpipeline.name=\"Fluss Tiering Service\" \\
+          -Dparallelism.default=4 \\
+          -Dexecution.checkpointing.interval=30s \\
+          -Dstate.checkpoints.dir=\"\${S3_BASE}/checkpoints/tiering\" \\
+          -Ds3.multiobjectdelete.enable=false \\
+          -Dtaskmanager.memory.network.fraction=0.2 \\
+          -Dtaskmanager.memory.managed.fraction=0.6 \\
+          /opt/flink/lib/fluss-flink-tiering-0.8.0-incubating.jar \\
+          --fluss.bootstrap.servers 192.168.1.202:9123 \\
+          --datalake.format iceberg \\
+          --datalake.iceberg.type hadoop \\
+          --datalake.iceberg.warehouse \"\${S3_BASE}/iceberg\" \\
+          --datalake.iceberg.hadoop.fs.s3a.endpoint \"\$S3_ENDPOINT\" \\
+          --datalake.iceberg.hadoop.fs.s3a.access.key \"\$S3_ACCESS_KEY\" \\
+          --datalake.iceberg.hadoop.fs.s3a.secret.key \"\$S3_SECRET_KEY\" \\
+          --datalake.iceberg.hadoop.fs.s3a.path.style.access true
+    fi
 
 '"
 

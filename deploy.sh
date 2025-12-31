@@ -5,7 +5,33 @@ set -euo pipefail
 REMOTE_SERVER="calvo@192.168.1.202"
 REMOTE_DIR="/mefitis/streaming"
 
+# --- Parse command line arguments ---
+DATALAKE_FORMAT="paimon"  # Default to Paimon
+BUILD_FLAG=""            # Default no forced build
+
+for arg in "$@"; do
+    case $arg in
+        --iceberg)
+            DATALAKE_FORMAT="iceberg"
+            shift
+            ;;
+        --build)
+            BUILD_FLAG="--build"
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            echo "Usage: $0 [--iceberg] [--build]"
+            exit 1
+            ;;
+    esac
+done
+
 echo "🚀 Starting Deployment Script..."
+echo "📊 Datalake Format: $DATALAKE_FORMAT"
+if [ -n "$BUILD_FLAG" ]; then
+    echo "🔨 Force Build: Enabled"
+fi
 
 echo "📤 0. Syncing Local Changes to Remote Server..."
 bash sync.sh
@@ -21,11 +47,13 @@ ssh -t "$REMOTE_SERVER" "sudo nix-shell -p jq --run '
     echo \"-----------------------------------\"
     echo \"🛑 Stopping all services...\"
 
-    docker compose -f flink-cdc/docker-compose.yaml down -v
-    docker compose -f fluss/docker-compose.yaml down -v
-    docker compose -f garage/docker-compose.yaml down -v
-    docker compose -f postgres-catalog/docker-compose.yaml down -v
-    docker compose -f postgres-source/docker-compose.yaml down -v
+    docker compose -f flink-cdc/docker-compose.yaml down -v || true
+    docker compose -f flink-cdc/docker-compose-iceberg.yaml down -v || true
+    docker compose -f fluss/docker-compose.yaml down -v || true
+    docker compose -f fluss/docker-compose-iceberg.yaml down -v || true
+    docker compose -f garage/docker-compose.yaml down -v || true
+    docker compose -f postgres-catalog/docker-compose.yaml down -v || true
+    docker compose -f postgres-source/docker-compose.yaml down -v || true
 
     echo \"🧹 Pruning Docker volumes...\"
     docker volume prune -f
@@ -96,14 +124,22 @@ bash ./sync.sh
 
 ssh -t "$REMOTE_SERVER" "sudo bash -c '
     cd $REMOTE_DIR
-    
+
+    # Set environment variables for the session
+    export DATALAKE_FORMAT=\"$DATALAKE_FORMAT\"
+
     echo \"-------------------------------------------\"
     echo \"------- SUBSTEP: STREAMING LAYER ----------\"
     echo \"-------------------------------------------\"
 
     echo \"🌊 Starting Fluss & 🐿️ Flink CDC...\"
-    docker compose -f fluss/docker-compose.yaml up -d
-    docker compose -f flink-cdc/docker-compose.yaml up -d
+    if [ \"$DATALAKE_FORMAT\" = \"iceberg\" ]; then
+        docker compose -f fluss/docker-compose-iceberg.yaml up -d $BUILD_FLAG
+        docker compose -f flink-cdc/docker-compose-iceberg.yaml up -d $BUILD_FLAG
+    else
+        docker compose -f fluss/docker-compose.yaml up -d $BUILD_FLAG
+        docker compose -f flink-cdc/docker-compose.yaml up -d $BUILD_FLAG
+    fi
     
     echo \"⏳ Waiting for Flink JobManager to go live...\"
     until curl -s http://localhost:8081/overview > /dev/null; do sleep 2; done
@@ -135,6 +171,8 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
     echo \"------- SUBSTEP: Tiering service ----------\"
     echo \"--------------------------------------------\"
     echo \"📦 Starting Fluss Tiering Service...\"
+
+    if [ \"\$DATALAKE_FORMAT\" = \"paimon\" ]; then
         docker exec flink-jobmanager /opt/flink/bin/flink run \\
           -Dpipeline.name=\"Fluss Tiering Service\" \\
           -Dparallelism.default=4 \\
@@ -156,6 +194,25 @@ ssh -t "$REMOTE_SERVER" "sudo bash -c '
           --datalake.paimon.s3.access-key \"${GARAGE_ACCESS_KEY}\" \\
           --datalake.paimon.s3.secret-key \"${GARAGE_SECRET_KEY}\" \\
           --datalake.paimon.s3.path.style.access true
+    else
+        docker exec flink-jobmanager /opt/flink/bin/flink run \\
+          -Dpipeline.name=\"Fluss Tiering Service\" \\
+          -Dparallelism.default=4 \\
+          -Dexecution.checkpointing.interval=30s \\
+          -Dstate.checkpoints.dir=\"s3://warehouse/checkpoints/tiering\" \\
+          -Ds3.multiobjectdelete.enable=false \\
+          -Dtaskmanager.memory.network.fraction=0.2 \\
+          -Dtaskmanager.memory.managed.fraction=0.6 \\
+          /opt/flink/lib/fluss-flink-tiering-0.8.0-incubating.jar \\
+          --fluss.bootstrap.servers 192.168.1.202:9123 \\
+          --datalake.format iceberg \\
+          --datalake.iceberg.type hadoop \\
+          --datalake.iceberg.warehouse \"s3://warehouse/iceberg\" \\
+          --datalake.iceberg.hadoop.fs.s3a.endpoint \"http://192.168.1.202:3900\" \\
+          --datalake.iceberg.hadoop.fs.s3a.access.key \"${GARAGE_ACCESS_KEY}\" \\
+          --datalake.iceberg.hadoop.fs.s3a.secret.key \"${GARAGE_SECRET_KEY}\" \\
+          --datalake.iceberg.hadoop.fs.s3a.path.style.access true
+    fi
 
 '"
 
