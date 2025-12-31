@@ -5,20 +5,23 @@ services:
     container_name: flink-jobmanager
     command: jobmanager
     environment:
+      # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         parallelism.default: 1
         classloader.resolve-order: parent-first
         classloader.check-leaked-classloader: false
         state.backend.type: rocksdb
-        state.checkpoints.dir: s3://warehouse/checkpoints
-        state.savepoints.dir: s3://warehouse/savepoints
-        s3.endpoint: http://192.168.1.202:3900
-        s3.path-style-access: true
+        state.checkpoints.dir: ${S3_BASE}/checkpoints
+        state.savepoints.dir: ${S3_BASE}/savepoints
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: ${S3_PATH_STYLE_ACCESS}
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK6ecc2767778e3b34a647878c
-        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
     ports:
       - "8081:8081"
       - "8083:8083"
@@ -31,6 +34,9 @@ services:
       context: .
     command: taskmanager
     environment:
+      # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 64
@@ -40,12 +46,12 @@ services:
         classloader.resolve-order: parent-first
         classloader.check-leaked-classloader: false
         state.backend.type: rocksdb
-        s3.endpoint: http://192.168.1.202:3900
-        s3.path-style-access: true
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: ${S3_PATH_STYLE_ACCESS}
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK6ecc2767778e3b34a647878c
-        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
@@ -70,12 +76,12 @@ services:
         rest.address: jobmanager
         classloader.resolve-order: parent-first
         classloader.check-leaked-classloader: false
-        s3.endpoint: http://192.168.1.202:3900
-        s3.path-style-access: true
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: ${S3_PATH_STYLE_ACCESS}
         s3.multiobjectdelete.enable: false
         s3.entropy.enabled: true
-        s3.access-key: GK6ecc2767778e3b34a647878c
-        s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
     volumes:
       - ./sql:/opt/flink/sql
     depends_on:

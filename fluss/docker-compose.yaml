@@ -1,13 +1,13 @@
-
 x-fluss-image: &fluss_image
-  image: fluss-paimon-jdbc:0.8.0
+  image: fluss-${DATALAKE_FORMAT}-jdbc:0.8.0
   build:
     context: .
     dockerfile: Dockerfile
     args:
-      FLUSS_TAG: 0.8.0-incubating
-      PAIMON_VERSION: 0.8.0
-      PGJDBC_VERSION: 42.7.8
+      FLUSS_TAG: ${FLUSS_TAG:-0.8.0-incubating}
+      PAIMON_VERSION: ${PAIMON_VERSION:-0.8.0}
+      ICEBERG_VERSION: ${ICEBERG_VERSION:-1.9.1}
+      PGJDBC_VERSION: ${PGJDBC_VERSION:-42.7.8}
 
 services:
   zookeeper:
@@ -30,31 +30,40 @@ services:
     depends_on: [zookeeper]
     ports: ["9123:9123"]
     environment:
-      - |
-        FLUSS_PROPERTIES=
+      # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      FLUSS_PROPERTIES: |
         zookeeper.address: zookeeper:2181
 
         bind.listeners: INTERNAL://fluss-coordinator:0, CLIENT://fluss-coordinator:9123
-        advertised.listeners: CLIENT://192.168.1.202:9123
+        advertised.listeners: CLIENT://${HOST_IP}:9123
         internal.listener.name: INTERNAL
 
         remote.data.dir: /tmp/fluss/remote-data
 
-        # --- Lakehouse: Paimon (JDBC metastore + MinIO/S3 warehouse) ---
-        datalake.format: paimon
+        # --- Data Lake Configuration ---
+        datalake.format: ${DATALAKE_FORMAT}
 
-        # These are passed to Paimon after stripping "datalake.paimon." :contentReference[oaicite:4]{index=4}
-        datalake.paimon.metastore: jdbc
-        datalake.paimon.uri: jdbc:postgresql://192.168.1.202:5433/paimon_catalog
-        datalake.paimon.jdbc.user: root
-        datalake.paimon.jdbc.password: root
-        datalake.paimon.catalog-key: paimon_catalog
+        # Paimon Configuration (only populated when DATALAKE_FORMAT=paimon)
+        datalake.paimon.metastore: ${PAIMON_METASTORE}
+        datalake.paimon.uri: ${PAIMON_URI}
+        datalake.paimon.jdbc.user: ${PAIMON_USER}
+        datalake.paimon.jdbc.password: ${PAIMON_PASSWORD}
+        datalake.paimon.catalog-key: ${PAIMON_CATALOG_KEY}
+        datalake.paimon.warehouse: ${PAIMON_WAREHOUSE}
+        datalake.paimon.s3.endpoint: ${S3_ENDPOINT}
+        datalake.paimon.s3.access-key: ${S3_ACCESS_KEY}
+        datalake.paimon.s3.secret-key: ${S3_SECRET_KEY}
+        datalake.paimon.s3.path.style.access: ${S3_PATH_STYLE_ACCESS}
 
-        datalake.paimon.warehouse: s3://warehouse/paimon
-        datalake.paimon.s3.endpoint: http://192.168.1.202:3900
-        datalake.paimon.s3.access-key: GK6ecc2767778e3b34a647878c
-        datalake.paimon.s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
-        datalake.paimon.s3.path.style.access: true
+        # Iceberg Configuration (only populated when DATALAKE_FORMAT=iceberg)
+        datalake.iceberg.type: ${ICEBERG_TYPE}
+        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE_PATH}
+        datalake.iceberg.hadoop.fs.s3a.endpoint: ${ICEBERG_ENDPOINT}
+        datalake.iceberg.hadoop.fs.s3a.access.key: ${ICEBERG_ACCESS_KEY}
+        datalake.iceberg.hadoop.fs.s3a.secret.key: ${ICEBERG_SECRET_KEY}
+        datalake.iceberg.hadoop.fs.s3a.path.style.access: ${ICEBERG_PATH_STYLE}
     volumes:
       - ./data/fluss/remote:/tmp/fluss/remote-data
 
@@ -66,32 +75,44 @@ services:
     depends_on: [fluss-coordinator]
     ports: ["9124:9123"]
     environment:
-      - |
-        FLUSS_PROPERTIES=
+      # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      FLUSS_PROPERTIES: |
         zookeeper.address: zookeeper:2181
 
         tablet-server.id: 0
 
         bind.listeners: INTERNAL://fluss-tablet:0, CLIENT://fluss-tablet:9123
-        advertised.listeners: CLIENT://192.168.1.202:9124
+        advertised.listeners: CLIENT://${HOST_IP}:9124
         internal.listener.name: INTERNAL
 
         data.dir: /tmp/fluss/data
         remote.data.dir: /tmp/fluss/remote-data
         kv.snapshot.interval: 0s
 
-        datalake.format: paimon
-        datalake.paimon.metastore: jdbc
-        datalake.paimon.uri: jdbc:postgresql://192.168.1.202:5433/paimon_catalog
-        datalake.paimon.jdbc.user: root
-        datalake.paimon.jdbc.password: root
-        datalake.paimon.catalog-key: paimon_catalog
+        # --- Data Lake Configuration ---
+        datalake.format: ${DATALAKE_FORMAT}
 
-        datalake.paimon.warehouse: s3://warehouse/paimon
-        datalake.paimon.s3.endpoint: http://192.168.1.202:3900
-        datalake.paimon.s3.access-key: GK6ecc2767778e3b34a647878c
-        datalake.paimon.s3.secret-key: 5483a265b26dcf9a5f3324a78d35dc89b4388c9c8b42d39f176b0e29af1f3bca
-        datalake.paimon.s3.path.style.access: true
+        # Paimon Configuration (only populated when DATALAKE_FORMAT=paimon)
+        datalake.paimon.metastore: ${PAIMON_METASTORE}
+        datalake.paimon.uri: ${PAIMON_URI}
+        datalake.paimon.jdbc.user: ${PAIMON_USER}
+        datalake.paimon.jdbc.password: ${PAIMON_PASSWORD}
+        datalake.paimon.catalog-key: ${PAIMON_CATALOG_KEY}
+        datalake.paimon.warehouse: ${PAIMON_WAREHOUSE}
+        datalake.paimon.s3.endpoint: ${S3_ENDPOINT}
+        datalake.paimon.s3.access-key: ${S3_ACCESS_KEY}
+        datalake.paimon.s3.secret-key: ${S3_SECRET_KEY}
+        datalake.paimon.s3.path.style.access: ${S3_PATH_STYLE_ACCESS}
+
+        # Iceberg Configuration (only populated when DATALAKE_FORMAT=iceberg)
+        datalake.iceberg.type: ${ICEBERG_TYPE}
+        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE_PATH}
+        datalake.iceberg.hadoop.fs.s3a.endpoint: ${ICEBERG_ENDPOINT}
+        datalake.iceberg.hadoop.fs.s3a.access.key: ${ICEBERG_ACCESS_KEY}
+        datalake.iceberg.hadoop.fs.s3a.secret.key: ${ICEBERG_SECRET_KEY}
+        datalake.iceberg.hadoop.fs.s3a.path.style.access: ${ICEBERG_PATH_STYLE}
     volumes:
       - ./data/fluss/tablet:/tmp/fluss/data
       - ./data/fluss/remote:/tmp/fluss/remote-data

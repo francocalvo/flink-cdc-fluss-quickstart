@@ -98,7 +98,47 @@ CREATE CATALOG paimon_catalog WITH (
 
 https://fluss.apache.org/blog/hands-on-fluss-lakehouse/
 
-## Environment Sync: Sat Dec 27 20:03:20 -03 2025
+## Comment:
 
-- S3 Access Key: GK70b6aca7147bab8271a19ecc
-- S3 Endpoint: http://192.168.1.202:3900
+**Lakehouse Format Dependencies**
+
+When using Fluss with different lakehouse formats, the Hadoop dependency
+requirements differ significantly.
+
+**Paimon**
+
+Paimon works with the older `flink-shaded-hadoop-2-uber-2.8.3-10.0.jar`. This
+uber jar bundles Hadoop 2.8.3 classes and is sufficient for Paimon's JDBC
+metastore and S3 operations.
+
+**Iceberg**
+
+Iceberg requires Hadoop 3.x. The Fluss Iceberg integration
+(`fluss-lake-iceberg`, `fluss-fs-s3`) is compiled against Hadoop 3.x APIs that
+don't exist in Hadoop 2.8.3. Using the old Hadoop 2 uber jar will cause runtime
+errors like:
+
+```
+NoSuchMethodError: 'long org.apache.hadoop.conf.Configuration.getTimeDuration(...)'
+```
+
+The fix is to replace `flink-shaded-hadoop-2-uber` with the Trino pre-bundled
+Hadoop 3.x jar:
+
+```
+hadoop-apache-3.3.5-2.jar
+```
+
+Additionally, Iceberg S3 FileIO requires these jars:
+
+```
+iceberg-aws-1.9.1.jar
+iceberg-aws-bundle-1.9.1.jar
+failsafe-3.3.2.jar
+```
+
+**Mixed Usage**
+
+If you need both Paimon and Iceberg in the same Flink deployment, use the Hadoop
+3.x jar. Paimon is forward-compatible with Hadoop 3.x, but Iceberg is not
+backward-compatible with Hadoop 2.x.
