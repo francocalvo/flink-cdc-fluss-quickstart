@@ -3,11 +3,12 @@ SET 'execution.runtime-mode' = 'streaming';
 SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.checkpointing.interval' = '5s';
 SET 'execution.checkpointing.max-concurrent-checkpoints' = '1';
+SET 'state.checkpoints.dir' = '__CHECKPOINTS_DIR__/ticket-groups-cdc';
 
 -- 1) Fluss catalog (point to coordinator+tablet; Fluss supports comma-separated bootstrap servers)
 CREATE CATALOG fluss_catalog WITH (
     'type' = 'fluss',
-    'bootstrap.servers' = '192.168.1.202:9123,192.168.1.202:9124'
+    'bootstrap.servers' = '192.168.1.202:9123'
 );
 USE CATALOG fluss_catalog;
 
@@ -15,15 +16,15 @@ CREATE DATABASE IF NOT EXISTS osb_staging;
 USE osb_staging;
 
 -- 2) Fluss staging table (append-only log table)
-CREATE TABLE IF NOT EXISTS movies_staging (
-    movie_id bigint,
-    title STRING,
-    description STRING,
-    duration_minutes int,
-    start_date timestamp(3),
-    created_at timestamp(3),
-    WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
-    PRIMARY KEY (movie_id) NOT ENFORCED
+CREATE TABLE IF NOT EXISTS ticket_groups_staging (
+    id STRING,
+    ticket_id STRING,
+    group_type STRING,
+    discount_rate DECIMAL(5,4),
+    created_at TIMESTAMP(3),
+    updated_at TIMESTAMP(3),
+    WATERMARK FOR updated_at AS updated_at - INTERVAL '5' SECOND,
+    PRIMARY KEY (id) NOT ENFORCED
 )
 WITH (
     'bucket.num' = '4',
@@ -32,15 +33,15 @@ WITH (
 );
 
 -- 3) Postgres CDC source (Flink CDC SQL connector)
-CREATE TEMPORARY TABLE pg_osb_movies (
-  movie_id BIGINT,
-  title STRING,
-  description STRING,
-  duration_minutes INT,
-  start_date TIMESTAMP(3),
+CREATE TEMPORARY TABLE pg_osb_ticket_groups (
+  id STRING,
+  ticket_id STRING,
+  group_type STRING,
+  discount_rate DECIMAL(5,4),
   created_at TIMESTAMP(3),
-  WATERMARK FOR created_at AS created_at - INTERVAL '5' SECOND,
-  PRIMARY KEY (movie_id) NOT ENFORCED
+  updated_at TIMESTAMP(3),
+  WATERMARK FOR updated_at AS updated_at - INTERVAL '5' SECOND,
+  PRIMARY KEY (id) NOT ENFORCED
 ) WITH (
   'connector' = 'postgres-cdc',
   'hostname' = '192.168.1.202',
@@ -49,20 +50,20 @@ CREATE TEMPORARY TABLE pg_osb_movies (
   'password' = 'root',
   'database-name' = 'source_db',
   'schema-name' = 'osb',
-  'table-name' = 'movies',
-  'slot.name' = 'cdc_osb_movies_to_fluss',
+  'table-name' = 'ticket_groups',
+  'slot.name' = 'cdc_osb_ticket_groups_to_fluss',
   'decoding.plugin.name' = 'pgoutput',
   'scan.incremental.snapshot.enabled' = 'true'
 );
 
 -- 4) Start the replication stream into Fluss
-INSERT INTO movies_staging
+INSERT INTO ticket_groups_staging
 SELECT
-    movie_id,
-    title,
-    description,
-    duration_minutes,
-    start_date,
-    created_at
+    id,
+    ticket_id,
+    group_type,
+    discount_rate,
+    created_at,
+    updated_at
 FROM
-    pg_osb_movies;
+    pg_osb_ticket_groups;

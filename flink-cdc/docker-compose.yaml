@@ -8,6 +8,8 @@ services:
       # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      # Force IPv4 to fix WebUI accessibility
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         parallelism.default: 1
@@ -24,7 +26,6 @@ services:
         s3.secret-key: ${S3_SECRET_KEY}
     ports:
       - "8081:8081"
-      - "8083:8083"
     volumes:
       - ./data/flink:/opt/flink/data
       - ./sql:/opt/flink/sql
@@ -60,6 +61,46 @@ services:
     # Single powerful TaskManager for PoC performance
     # deploy:
     #   replicas: 4
+
+  sql-gateway:
+    build:
+      context: .
+    container_name: flink-sql-gateway
+    command:
+      - bash
+      - -c
+      - |
+        echo 'Waiting for JobManager to be ready...'
+        until curl -s http://jobmanager:8081/overview > /dev/null; do
+          sleep 2
+        done
+        echo 'Starting SQL Gateway...'
+        /opt/flink/bin/sql-gateway.sh start-foreground \
+          -Dsql-gateway.endpoint.rest.bind-address=0.0.0.0 \
+          -Dsql-gateway.endpoint.rest.address=0.0.0.0 \
+          -Dsql-gateway.endpoint.rest.port=8083
+    environment:
+      # AWS credentials for Iceberg (only used when DATALAKE_FORMAT=iceberg)
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        rest.address: jobmanager
+        classloader.resolve-order: parent-first
+        classloader.check-leaked-classloader: false
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.path-style-access: ${S3_PATH_STYLE_ACCESS}
+        s3.multiobjectdelete.enable: false
+        s3.entropy.enabled: true
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./sql:/opt/flink/sql
+    depends_on:
+      - jobmanager
+      - taskmanager
 
   sql-client:
     build:
