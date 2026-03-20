@@ -57,13 +57,15 @@ services:
         datalake.paimon.s3.secret-key: ${S3_SECRET_KEY}
         datalake.paimon.s3.path.style.access: ${S3_PATH_STYLE_ACCESS}
 
-        # Iceberg Configuration (only populated when DATALAKE_FORMAT=iceberg)
-        datalake.iceberg.type: ${ICEBERG_TYPE}
-        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE_PATH}
-        datalake.iceberg.hadoop.fs.s3a.endpoint: ${ICEBERG_ENDPOINT}
+        # Iceberg Configuration using AWS Glue Data Catalog
+        datalake.iceberg.type: glue
+        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE}/warehouse
+        datalake.iceberg.client.region: ${AWS_REGION:-us-east-2}
+        # S3A/Hadoop settings for file IO (data + metadata files)
+        # datalake.iceberg.hadoop.fs.s3a.endpoint: ${ICEBERG_ENDPOINT}
+        # datalake.iceberg.hadoop.fs.s3a.path.style.access: ${ICEBERG_PATH_STYLE}
         datalake.iceberg.hadoop.fs.s3a.access.key: ${ICEBERG_ACCESS_KEY}
         datalake.iceberg.hadoop.fs.s3a.secret.key: ${ICEBERG_SECRET_KEY}
-        datalake.iceberg.hadoop.fs.s3a.path.style.access: ${ICEBERG_PATH_STYLE}
     volumes:
       - ./data/fluss/remote:/tmp/fluss/remote-data
 
@@ -106,9 +108,11 @@ services:
         datalake.paimon.s3.secret-key: ${S3_SECRET_KEY}
         datalake.paimon.s3.path.style.access: ${S3_PATH_STYLE_ACCESS}
 
-        # Iceberg Configuration (only populated when DATALAKE_FORMAT=iceberg)
-        datalake.iceberg.type: ${ICEBERG_TYPE}
-        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE_PATH}
+        # Iceberg Configuration using AWS Glue Data Catalog
+        datalake.iceberg.type: glue
+        datalake.iceberg.warehouse: ${ICEBERG_WAREHOUSE}/warehouse
+        datalake.iceberg.client.region: ${AWS_REGION:-us-east-2}
+        # S3A/Hadoop settings for file IO (data + metadata files)
         datalake.iceberg.hadoop.fs.s3a.endpoint: ${ICEBERG_ENDPOINT}
         datalake.iceberg.hadoop.fs.s3a.access.key: ${ICEBERG_ACCESS_KEY}
         datalake.iceberg.hadoop.fs.s3a.secret.key: ${ICEBERG_SECRET_KEY}
